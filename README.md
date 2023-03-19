@@ -9,9 +9,9 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - ✅  decode from input
 
 Below will be add in the future:
-- [ ] CollapsingHighestDense
-- [ ] LogarithmicMapping 
-- [ ] encode to output
+- CollapsingHighestDense
+- LogarithmicMapping 
+- encode to output
 
 
 # Usage
