@@ -16,7 +16,7 @@ Below will be add in the future:
 
 # Usage
 ```rust
-sketches_rust::DDSketch;
+use sketches_rust::DDSketch;
 let mut d = DDSketch::collapsing_lowest_dense(0.02,100);
 d.accept(1.0);
 d.accept(2.0);
