@@ -6,6 +6,7 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] CubicallyInterpolatedMapping 
 - [x] CollapsingHighestDense
 - [x] CollapsingLowestDense 
+- [x] UnboundedSizeDenseStore
 - [x] Mergeable
 - [x] Decode from input
 
