@@ -2,18 +2,16 @@ use std::{fmt, io};
 
 #[derive(Debug)]
 pub enum Error {
-    InvalidArgument,
+    InvalidArgument(&'static str),
     NoSuchElement,
-    UnknownType,
     IoError(io::ErrorKind),
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            Error::InvalidArgument => write!(f, "Invalid argument."),
+            Error::InvalidArgument(arg) => write!(f, "Invalid argument: {}", arg),
             Error::NoSuchElement => write!(f, "No such element."),
-            Error::UnknownType => write!(f, "Unknown type."),
             Error::IoError(ref cause) => write!(f, "Io Error: {}", cause),
         }
     }

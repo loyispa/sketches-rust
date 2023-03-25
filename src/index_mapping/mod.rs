@@ -1,6 +1,9 @@
+use crate::Error;
+use crate::sketch::Flag;
+
 pub mod impls;
 
-pub trait IndexMapping {
+pub trait IndexMapping: ToString {
     fn index(&self, value: f64) -> i32;
     fn value(&self, index: i32) -> f64;
     fn lower_bound(&self, index: i32) -> f64;
@@ -17,4 +20,18 @@ pub enum IndexMappingLayout {
     LogQuadratic,
     LogCubic,
     LogQuartic,
+}
+
+impl IndexMappingLayout {
+    pub fn of_flag(flag: &Flag) -> Result<IndexMappingLayout, Error> {
+        let index = flag.get_marker() >> 2;
+        return match index {
+            0 => { Ok(IndexMappingLayout::LOG) }
+            1 => { Ok(IndexMappingLayout::LogLinear) }
+            2 => { Ok(IndexMappingLayout::LogQuadratic) }
+            3 => { Ok(IndexMappingLayout::LogCubic) }
+            4 => { Ok(IndexMappingLayout::LogQuartic) }
+            _ => { Err(Error::InvalidArgument("unknown flag")) }
+        };
+    }
 }
