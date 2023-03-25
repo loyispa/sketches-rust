@@ -4,6 +4,7 @@ This is a partial port of the [Java DDSketch](https://github.com/DataDog/sketche
 # Features
 It aims at as compatible as possible with Java implementations, here is some features has support: 
 - [x] CubicallyInterpolatedMapping 
+- [x] LogarithmicMapping
 - [x] CollapsingHighestDense
 - [x] CollapsingLowestDense 
 - [x] UnboundedSizeDenseStore
@@ -11,7 +12,6 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] Decode from input
 
 Below will be add in the future:
-- [ ] LogarithmicMapping 
 - [ ] Encode to output
 
 
