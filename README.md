@@ -3,20 +3,20 @@ This is a partial port of the [Java DDSketch](https://github.com/DataDog/sketche
 
 # Features
 It aims at as compatible as possible with Java implementations, here is some features has support: 
-- CubicallyInterpolatedMapping 
-- CollapsingHighestDense
-- CollapsingLowestDense 
-- mergeable
-- decode from input
+- ✅ CubicallyInterpolatedMapping 
+- ✅ CollapsingHighestDense
+- ✅ CollapsingLowestDense 
+- ✅ mergeable
+- ✅ decode from input
 
 Below will be add in the future:
-- LogarithmicMapping 
-- encode to output
+-[ ] LogarithmicMapping 
+-[ ] encode to output
 
 
 # Usage
 ```rust
-use self::sketches_rust::sketch::DDSketch;
+use sketches_rust::DDSketch;
 let mut d = DDSketch::collapsing_lowest_dense(0.02,100);
 d.accept(1.0);
 d.accept(2.0);
