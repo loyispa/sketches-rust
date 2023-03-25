@@ -3,13 +3,13 @@ This is a partial port of the [Java DDSketch](https://github.com/DataDog/sketche
 
 # Features
 It aims at as compatible as possible with Java implementations, here is some features has support: 
-- CubicallyInterpolatedMapping implemention
-- CollapsingLowestDense implemention
-- merge with otehr sketch instance
+- CubicallyInterpolatedMapping 
+- CollapsingHighestDense
+- CollapsingLowestDense 
+- mergeable
 - decode from input
 
 Below will be add in the future:
-- CollapsingHighestDense
 - LogarithmicMapping 
 - encode to output
 

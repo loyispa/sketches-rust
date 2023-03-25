@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::input::Input;
+use crate::util::serde;
 
 pub mod impls;
 
@@ -20,7 +21,52 @@ pub trait Store {
         &mut self,
         input: &mut impl Input,
         mode: BinEncodingMode,
-    ) -> Result<(), Error>;
+    ) -> Result<(), Error> {
+        return match mode {
+            BinEncodingMode::IndexDeltasAndCounts => {
+                let num_bins = serde::decode_unsigned_var_long(input)?;
+                let mut index: i64 = 0;
+                let mut i = 0;
+                while i < num_bins {
+                    let index_delta = serde::decode_signed_var_long(input)?;
+                    let count = serde::decode_var_double(input)?;
+                    index += index_delta;
+                    self.add(serde::i64_to_i32_exact(index)?, count);
+                    i += 1;
+                }
+
+                Ok(())
+            }
+
+            BinEncodingMode::IndexDeltas => {
+                let num_bins = serde::decode_unsigned_var_long(input)?;
+                let mut index: i64 = 0;
+                let mut i = 0;
+                while i < num_bins {
+                    let index_delta = serde::decode_signed_var_long(input)?;
+                    index += index_delta;
+                    self.add(serde::i64_to_i32_exact(index)?, 1.0);
+                    i += 1;
+                }
+                Ok(())
+            }
+
+            BinEncodingMode::ContiguousCounts => {
+                let num_bins = serde::decode_unsigned_var_long(input)?;
+                let mut index: i64 = serde::decode_signed_var_long(input)?;
+                let index_delta = serde::decode_signed_var_long(input)?;
+
+                let mut i = 0;
+                while i < num_bins {
+                    let count = serde::decode_var_double(input)?;
+                    self.add(serde::i64_to_i32_exact(index)?, count);
+                    index += index_delta;
+                    i += 1;
+                }
+                Ok(())
+            }
+        };
+    }
     fn get_descending_stream(&mut self) -> Vec<(i32, f64)>;
     fn get_ascending_stream(&mut self) -> Vec<(i32, f64)>;
     fn get_descending_iter(&mut self) -> StoreIter;
