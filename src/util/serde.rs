@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::input::*;
+use crate::sketch::Flag;
 
 const SIGNIFICAND_WIDTH: i64 = 53;
 const SIGNIFICAND_MASK: i64 = 0x000fffffffffffff;
@@ -8,8 +9,7 @@ const EXPONENT_SHIFT: i64 = SIGNIFICAND_WIDTH - 1;
 const EXPONENT_BIAS: i64 = 1023;
 const ONE: i64 = 0x3ff0000000000000;
 
-
-pub fn decode_signed_var_long(input: &mut impl Input) -> Result<i64, Error>{
+pub fn decode_signed_var_long(input: &mut impl Input) -> Result<i64, Error> {
     Ok(zig_zag_decode(decode_unsigned_var_long(input)?))
 }
 
@@ -45,7 +45,7 @@ pub fn decode_var_double(input: &mut impl Input) -> Result<f64, Error> {
     return Ok(var_bits_to_double(bits));
 }
 
-pub fn i64_to_i32_exact(value: i64) -> Result<i32,Error> {
+pub fn i64_to_i32_exact(value: i64) -> Result<i32, Error> {
     let v = value as i32;
     if value != v as i64 {
         return Err(Error::InvalidArgument("inter overflow"));
@@ -53,13 +53,12 @@ pub fn i64_to_i32_exact(value: i64) -> Result<i32,Error> {
     Ok(v)
 }
 
-pub fn i32_to_usize_exact(value: i32) -> Result<usize,Error> {
+pub fn i32_to_usize_exact(value: i32) -> Result<usize, Error> {
     if value < 0 {
         return Err(Error::InvalidArgument("inter overflow"));
     }
     Ok(value as usize)
 }
-
 
 pub fn get_exponent(long_bits: i64) -> i64 {
     ((long_bits & EXPONENT_MASK) >> EXPONENT_SHIFT) - EXPONENT_BIAS
@@ -71,8 +70,8 @@ pub fn get_significand_plus_one(long_bits: i64) -> f64 {
 }
 
 pub fn build_double(exponent: i64, significand_plus_one: f64) -> f64 {
-    let raw = (((exponent + EXPONENT_BIAS) << EXPONENT_SHIFT) & EXPONENT_MASK) |
-        (f64::to_bits(significand_plus_one) as i64 & SIGNIFICAND_MASK);
+    let raw = (((exponent + EXPONENT_BIAS) << EXPONENT_SHIFT) & EXPONENT_MASK)
+        | (f64::to_bits(significand_plus_one) as i64 & SIGNIFICAND_MASK);
     f64::from_bits(raw as u64)
 }
 
@@ -84,11 +83,25 @@ fn var_bits_to_double(bits: i64) -> f64 {
     f64::from_bits((i64::rotate_right(bits, 6) + f64::to_bits(1.0) as i64) as u64) - 1.0
 }
 
+pub fn ignore_exact_summary_statistic_flags(
+    input: &mut impl Input,
+    flag: Flag,
+) -> Result<(), Error> {
+    return if flag == Flag::COUNT {
+        decode_var_double(input)?;
+        Ok(())
+    } else if flag == Flag::SUM || flag == Flag::MIN || flag == Flag::MAX {
+        input.read_double_le()?;
+        Ok(())
+    } else {
+        Err(Error::InvalidArgument("unknown flag"))
+    };
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::input::impls::DefaultInput;
     use super::*;
+    use crate::input::impls::DefaultInput;
 
     #[test]
     fn test_decode_var_double() {
@@ -103,10 +116,19 @@ mod tests {
             (7.0, vec![6]),
             (8.0, vec![134, 32]),
             (9.0, vec![134, 64]),
-            (4.503599627370494E15, vec![231, 255, 255, 255, 255, 255, 255, 255, 128]),
+            (
+                4.503599627370494E15,
+                vec![231, 255, 255, 255, 255, 255, 255, 255, 128],
+            ),
             (4.503599627370495E15, vec![104]),
-            (4.503599627370496E15, vec![232, 128, 128, 128, 128, 128, 128, 128, 64]),
-            (9.00719925474099E15, vec![233, 255, 255, 255, 255, 255, 255, 255, 192]),
+            (
+                4.503599627370496E15,
+                vec![232, 128, 128, 128, 128, 128, 128, 128, 64],
+            ),
+            (
+                9.00719925474099E15,
+                vec![233, 255, 255, 255, 255, 255, 255, 255, 192],
+            ),
             (-1.0, vec![130, 128, 128, 128, 128, 128, 128, 128, 48]),
             (-0.5, vec![254, 128, 128, 128, 128, 128, 128, 128, 63]),
         ];
@@ -131,11 +153,26 @@ mod tests {
             (8191, vec![254, 127]),
             (8192, vec![128, 128, 1]),
             (8193, vec![130, 128, 1]),
-            (4611686018427387902, vec![252, 255, 255, 255, 255, 255, 255, 255, 127]),
-            (4611686018427387903, vec![254, 255, 255, 255, 255, 255, 255, 255, 127]),
-            (4611686018427387904, vec![128, 128, 128, 128, 128, 128, 128, 128, 128]),
-            (9223372036854775806, vec![252, 255, 255, 255, 255, 255, 255, 255, 255]),
-            (9223372036854775807, vec![254, 255, 255, 255, 255, 255, 255, 255, 255]),
+            (
+                4611686018427387902,
+                vec![252, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                4611686018427387903,
+                vec![254, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                4611686018427387904,
+                vec![128, 128, 128, 128, 128, 128, 128, 128, 128],
+            ),
+            (
+                9223372036854775806,
+                vec![252, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
+            (
+                9223372036854775807,
+                vec![254, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
             (-1, vec![1]),
             (-63, vec![125]),
             (-64, vec![127]),
@@ -145,11 +182,26 @@ mod tests {
             (-8191, vec![253, 127]),
             (-8192, vec![255, 127]),
             (-8193, vec![129, 128, 1]),
-            (-4611686018427387903, vec![253, 255, 255, 255, 255, 255, 255, 255, 127]),
-            (-4611686018427387904, vec![255, 255, 255, 255, 255, 255, 255, 255, 127]),
-            (-4611686018427387905, vec![129, 128, 128, 128, 128, 128, 128, 128, 128]),
-            (-9223372036854775807, vec![253, 255, 255, 255, 255, 255, 255, 255, 255]),
-            (-9223372036854775808, vec![255, 255, 255, 255, 255, 255, 255, 255, 255]),
+            (
+                -4611686018427387903,
+                vec![253, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                -4611686018427387904,
+                vec![255, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                -4611686018427387905,
+                vec![129, 128, 128, 128, 128, 128, 128, 128, 128],
+            ),
+            (
+                -9223372036854775807,
+                vec![253, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
+            (
+                -9223372036854775808,
+                vec![255, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
         ];
 
         for arg in args {
@@ -158,7 +210,6 @@ mod tests {
             assert_eq!(arg.0, value);
         }
     }
-
 
     #[test]
     fn test_decode_unsigned_var_long() {
@@ -174,7 +225,7 @@ mod tests {
             (16384, vec![128, 128, 1]),
             (16385, vec![129, 128, 1]),
             (-2, vec![254, 255, 255, 255, 255, 255, 255, 255, 255]),
-            (-1, vec![255, 255, 255, 255, 255, 255, 255, 255, 255])
+            (-1, vec![255, 255, 255, 255, 255, 255, 255, 255, 255]),
         ];
 
         for arg in args {
@@ -207,7 +258,6 @@ mod tests {
         assert_eq!(i64_to_i32_exact(-2147483648).unwrap(), -2147483648);
     }
 
-
     #[test]
     fn test_i32_to_usize_exact() {
         assert_eq!(i32_to_usize_exact(0).unwrap(), 0);
@@ -222,4 +272,3 @@ mod tests {
         i32_to_usize_exact(-1).unwrap();
     }
 }
-

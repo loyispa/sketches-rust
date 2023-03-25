@@ -1,5 +1,5 @@
-use crate::Error;
 use crate::sketch::Flag;
+use crate::Error;
 
 pub mod impls;
 
@@ -26,12 +26,12 @@ impl IndexMappingLayout {
     pub fn of_flag(flag: &Flag) -> Result<IndexMappingLayout, Error> {
         let index = flag.get_marker() >> 2;
         return match index {
-            0 => { Ok(IndexMappingLayout::LOG) }
-            1 => { Ok(IndexMappingLayout::LogLinear) }
-            2 => { Ok(IndexMappingLayout::LogQuadratic) }
-            3 => { Ok(IndexMappingLayout::LogCubic) }
-            4 => { Ok(IndexMappingLayout::LogQuartic) }
-            _ => { Err(Error::InvalidArgument("unknown flag")) }
+            0 => Ok(IndexMappingLayout::LOG),
+            1 => Ok(IndexMappingLayout::LogLinear),
+            2 => Ok(IndexMappingLayout::LogQuadratic),
+            3 => Ok(IndexMappingLayout::LogCubic),
+            4 => Ok(IndexMappingLayout::LogQuartic),
+            _ => Err(Error::InvalidArgument("unknown flag")),
         };
     }
 }

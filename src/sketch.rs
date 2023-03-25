@@ -1,17 +1,17 @@
-use crate::error::{Error};
-use crate::util::serde;
-use crate::index_mapping::impls::{CubicallyInterpolatedMapping};
+use crate::error::Error;
+use crate::index_mapping::impls::CubicallyInterpolatedMapping;
 use crate::index_mapping::{IndexMapping, IndexMappingLayout};
 use crate::input::Input;
-use crate::store::{Store, BinEncodingMode};
-use crate::store::impls::{CollapsingLowestDenseStore};
+use crate::store::impls::CollapsingLowestDenseStore;
+use crate::store::{BinEncodingMode, Store};
+use crate::util::serde;
 
-pub struct DDSketch {
-    index_mapping: Box<dyn IndexMapping>,
+pub struct DDSketch<I: IndexMapping, S: Store> {
+    index_mapping: I,
     min_indexed_value: f64,
     max_indexed_value: f64,
-    negative_value_store: CollapsingLowestDenseStore,
-    positive_value_store: CollapsingLowestDenseStore,
+    negative_value_store: S,
+    positive_value_store: S,
     zero_count: f64,
 }
 
@@ -27,18 +27,7 @@ pub enum FlagType {
     NegativeStore = 0b11,
 }
 
-
-impl DDSketch {
-    pub fn collapsing_lowest_dense(relative_accuracy: f64, max_num_bins: i32) -> DDSketch {
-        let index_mapping = Box::new(CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy));
-        let negative_value_store = CollapsingLowestDenseStore::new(max_num_bins);
-        let positive_value_store = CollapsingLowestDenseStore::new(max_num_bins);
-        let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
-        let max_indexed_value = index_mapping.max_indexable_value();
-        let zero_count = 0.0;
-        DDSketch { index_mapping, negative_value_store, positive_value_store, min_indexed_value, max_indexed_value, zero_count }
-    }
-
+impl<I: IndexMapping, S: Store> DDSketch<I, S> {
     pub fn accept(&mut self, value: f64) {
         self.accept_with_count(value, 1.0);
     }
@@ -53,25 +42,20 @@ impl DDSketch {
         }
 
         if value > self.min_indexed_value {
-            self.positive_value_store.add(self.index_mapping.index(value), 1.0);
+            self.positive_value_store
+                .add(self.index_mapping.index(value), 1.0);
         } else if value < -self.min_indexed_value {
-            self.negative_value_store.add(self.index_mapping.index(-value), 1.0);
+            self.negative_value_store
+                .add(self.index_mapping.index(-value), 1.0);
         } else {
             self.zero_count += 1.0;
         }
     }
 
-    pub fn merge_with(&mut self, other: &mut DDSketch) {
-        if self.index_mapping.to_string() != other.index_mapping.to_string() {
-            return;
-        }
-        self.negative_value_store.merge_with(&mut other.negative_value_store);
-        self.positive_value_store.merge_with(&mut other.positive_value_store);
-        self.zero_count += other.zero_count;
-    }
-
     pub fn is_empty(&self) -> bool {
-        self.zero_count == 0.0 && self.negative_value_store.is_empty() && self.positive_value_store.is_empty()
+        self.zero_count == 0.0
+            && self.negative_value_store.is_empty()
+            && self.positive_value_store.is_empty()
     }
 
     pub fn clear(&mut self) {
@@ -81,7 +65,9 @@ impl DDSketch {
     }
 
     pub fn get_count(&mut self) -> f64 {
-        self.zero_count + self.negative_value_store.get_total_count() + self.positive_value_store.get_total_count()
+        self.zero_count
+            + self.negative_value_store.get_total_count()
+            + self.positive_value_store.get_total_count()
     }
 
     pub fn get_sum(&mut self) -> f64 {
@@ -100,11 +86,15 @@ impl DDSketch {
 
     pub fn get_max(&mut self) -> Result<f64, Error> {
         return if !self.positive_value_store.is_empty() {
-            Ok(self.index_mapping.value(self.positive_value_store.get_max_index()))
+            Ok(self
+                .index_mapping
+                .value(self.positive_value_store.get_max_index()))
         } else if self.zero_count > 0.0 {
             Ok(0.0)
         } else if !self.negative_value_store.is_empty() {
-            Ok(-self.index_mapping.value(self.negative_value_store.get_min_index()))
+            Ok(-self
+                .index_mapping
+                .value(self.negative_value_store.get_min_index()))
         } else {
             Err(Error::NoSuchElement)
         };
@@ -112,11 +102,15 @@ impl DDSketch {
 
     pub fn get_min(&mut self) -> Result<f64, Error> {
         return if !self.negative_value_store.is_empty() {
-            Ok(-self.index_mapping.value(self.negative_value_store.get_max_index()))
+            Ok(-self
+                .index_mapping
+                .value(self.negative_value_store.get_max_index()))
         } else if self.zero_count > 0.0 {
             Ok(0.0)
         } else if !self.positive_value_store.is_empty() {
-            Ok(self.index_mapping.value(self.positive_value_store.get_min_index()))
+            Ok(self
+                .index_mapping
+                .value(self.positive_value_store.get_min_index()))
         } else {
             Err(Error::NoSuchElement)
         };
@@ -130,7 +124,7 @@ impl DDSketch {
         return Ok(self.get_sum() / count);
     }
 
-    pub fn get_value_at_quantile(self: &mut DDSketch, quantile: f64) -> Result<f64, Error> {
+    pub fn get_value_at_quantile(self: &mut DDSketch<I, S>, quantile: f64) -> Result<f64, Error> {
         if quantile < 0.0 || quantile > 1.0 {
             return Err(Error::InvalidArgument("quantile"));
         }
@@ -175,11 +169,13 @@ impl DDSketch {
             match flag_type {
                 FlagType::PositiveStore => {
                     let mode = BinEncodingMode::of_flag(flag.get_marker())?;
-                    self.positive_value_store.decode_and_merge_with(input, mode)?;
+                    self.positive_value_store
+                        .decode_and_merge_with(input, mode)?;
                 }
                 FlagType::NegativeStore => {
                     let mode = BinEncodingMode::of_flag(flag.get_marker())?;
-                    self.negative_value_store.decode_and_merge_with(input, mode)?;
+                    self.negative_value_store
+                        .decode_and_merge_with(input, mode)?;
                 }
                 FlagType::IndexMapping => {
                     let layout = IndexMappingLayout::of_flag(&flag)?;
@@ -187,6 +183,7 @@ impl DDSketch {
                         IndexMappingLayout::LogCubic => {
                             let decoded_index_mapping =
                                 CubicallyInterpolatedMapping::decode(input)?;
+
                             if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
                                 return Err(Error::InvalidArgument("Unmatched IndexMapping"));
                             }
@@ -200,7 +197,7 @@ impl DDSketch {
                     if Flag::ZERO_COUNT == flag {
                         self.zero_count += serde::decode_var_double(input)?;
                     } else {
-                        DDSketch::ignore_exact_summary_statistic_flags(input, flag)?;
+                        serde::ignore_exact_summary_statistic_flags(input, flag)?;
                     }
                 }
             }
@@ -208,16 +205,37 @@ impl DDSketch {
         Ok(())
     }
 
-    fn ignore_exact_summary_statistic_flags(input: &mut impl Input, flag: Flag) -> Result<(), Error> {
-        return if flag == Flag::COUNT {
-            serde::decode_var_double(input)?;
-            Ok(())
-        } else if flag == Flag::SUM || flag == Flag::MIN || flag == Flag::MAX {
-            input.read_double_le()?;
-            Ok(())
-        } else {
-            Err(Error::InvalidArgument("unknown flag"))
-        };
+    pub fn merge_with(&mut self, other: &mut DDSketch<I, S>) {
+        if self.index_mapping.to_string() != other.index_mapping.to_string() {
+            return;
+        }
+        self.negative_value_store
+            .merge_with(&mut other.negative_value_store);
+        self.positive_value_store
+            .merge_with(&mut other.positive_value_store);
+        self.zero_count += other.zero_count;
+    }
+}
+
+impl DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
+    pub fn collapsing_lowest_dense(
+        relative_accuracy: f64,
+        max_num_bins: i32,
+    ) -> DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
+        let index_mapping = CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy);
+        let negative_value_store = CollapsingLowestDenseStore::new(max_num_bins);
+        let positive_value_store = CollapsingLowestDenseStore::new(max_num_bins);
+        let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
+        let max_indexed_value = index_mapping.max_indexable_value();
+        let zero_count = 0.0;
+        DDSketch {
+            index_mapping,
+            negative_value_store,
+            positive_value_store,
+            min_indexed_value,
+            max_indexed_value,
+            zero_count,
+        }
     }
 }
 
@@ -254,11 +272,11 @@ impl Flag {
 impl FlagType {
     pub fn value_of(t: u8) -> Result<FlagType, Error> {
         match t {
-            0b00 => { Ok(FlagType::SketchFeatures) }
-            0b01 => { Ok(FlagType::PositiveStore) }
-            0b10 => { Ok(FlagType::IndexMapping) }
-            0b11 => { Ok(FlagType::NegativeStore) }
-            _ => { Err(Error::InvalidArgument("FlagType")) }
+            0b00 => Ok(FlagType::SketchFeatures),
+            0b01 => Ok(FlagType::PositiveStore),
+            0b10 => Ok(FlagType::IndexMapping),
+            0b11 => Ok(FlagType::NegativeStore),
+            _ => Err(Error::InvalidArgument("FlagType")),
         }
     }
 }
@@ -266,6 +284,7 @@ impl FlagType {
 #[cfg(test)]
 mod tests {
     use crate::input::impls::DefaultInput;
+
     use super::*;
 
     #[test]
@@ -317,11 +336,14 @@ mod tests {
         assert_eq!(300.0, sketch1.get_count());
     }
 
-
     #[test]
     fn test_sketch_decode() {
         let accuracy = 2e-2;
-        let mut input = DefaultInput::wrap(vec!(14, 100, 244, 7, 173, 131, 165, 240, 63, 0, 0, 0, 0, 0, 0, 0, 0, 5, 21, 0, 140, 48, 34, 150, 241, 16, 20, 148, 191, 96, 14, 142, 62, 12, 139, 16, 10, 134, 96, 8, 3, 6, 2, 6, 2, 6, 2, 4, 2, 42, 2, 26, 2, 6, 2, 20, 2, 6, 2, 2, 2, 10, 2, 20, 2, 14, 2, 10, 2));
+        let mut input = DefaultInput::wrap(vec![
+            14, 100, 244, 7, 173, 131, 165, 240, 63, 0, 0, 0, 0, 0, 0, 0, 0, 5, 21, 0, 140, 48, 34,
+            150, 241, 16, 20, 148, 191, 96, 14, 142, 62, 12, 139, 16, 10, 134, 96, 8, 3, 6, 2, 6,
+            2, 6, 2, 4, 2, 42, 2, 26, 2, 6, 2, 20, 2, 6, 2, 2, 2, 10, 2, 20, 2, 14, 2, 10, 2,
+        ]);
         let mut sketch = DDSketch::collapsing_lowest_dense(accuracy, 50);
         sketch.decode_and_merge_with(&mut input).unwrap();
         assert_eq!(4538.0, sketch.get_count());
