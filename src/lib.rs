@@ -36,11 +36,11 @@ Also you could merge other DDSketch:
 
  */
 
+mod error;
 mod index_mapping;
 mod store;
 mod util;
 
-pub mod error;
 pub mod input;
 pub mod output;
 pub mod sketch;
