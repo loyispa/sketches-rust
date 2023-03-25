@@ -2,7 +2,7 @@ use crate::error::Error;
 use crate::index_mapping::impls::CubicallyInterpolatedMapping;
 use crate::index_mapping::{IndexMapping, IndexMappingLayout};
 use crate::input::Input;
-use crate::store::impls::CollapsingLowestDenseStore;
+use crate::store::impls::{CollapsingHighestDenseStore, CollapsingLowestDenseStore};
 use crate::store::{BinEncodingMode, Store};
 use crate::util::serde;
 
@@ -239,6 +239,28 @@ impl DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
     }
 }
 
+impl DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore> {
+    pub fn collapsing_highest_dense(
+        relative_accuracy: f64,
+        max_num_bins: i32,
+    ) -> DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore> {
+        let index_mapping = CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy);
+        let negative_value_store = CollapsingHighestDenseStore::new(max_num_bins);
+        let positive_value_store = CollapsingHighestDenseStore::new(max_num_bins);
+        let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
+        let max_indexed_value = index_mapping.max_indexable_value();
+        let zero_count = 0.0;
+        DDSketch {
+            index_mapping,
+            negative_value_store,
+            positive_value_store,
+            min_indexed_value,
+            max_indexed_value,
+            zero_count,
+        }
+    }
+}
+
 impl Flag {
     pub const ZERO_COUNT: Flag = Flag::with_type(FlagType::SketchFeatures, 1);
     pub const COUNT: Flag = Flag::with_type(FlagType::SketchFeatures, 0x28);
@@ -288,8 +310,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_sketch_quantile() {
+    fn test_sketch_quantile_0() {
         let mut sketch = DDSketch::collapsing_lowest_dense(0.02, 100);
+        sketch.accept(1.0);
+        sketch.accept(2.0);
+        sketch.accept(3.0);
+        sketch.accept(4.0);
+        sketch.accept(5.0);
+
+        assert!((f64::abs(sketch.get_value_at_quantile(0.0).unwrap() - 1.0) / 1.0) < 0.021);
+        assert!((f64::abs(sketch.get_value_at_quantile(0.5).unwrap() - 3.0) / 3.0) < 0.021);
+        assert!((f64::abs(sketch.get_value_at_quantile(1.0).unwrap() - 5.0) / 5.0) < 0.021);
+    }
+
+    #[test]
+    fn test_sketch_quantile_1() {
+        let mut sketch = DDSketch::collapsing_highest_dense(0.02, 100);
         sketch.accept(1.0);
         sketch.accept(2.0);
         sketch.accept(3.0);
