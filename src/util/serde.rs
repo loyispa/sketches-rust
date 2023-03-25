@@ -48,14 +48,14 @@ pub fn decode_var_double(input: &mut impl Input) -> Result<f64, Error> {
 pub fn i64_to_i32_exact(value: i64) -> Result<i32,Error> {
     let v = value as i32;
     if value != v as i64 {
-        return Err(Error::InvalidArgument);
+        return Err(Error::InvalidArgument("inter overflow"));
     }
     Ok(v)
 }
 
 pub fn i32_to_usize_exact(value: i32) -> Result<usize,Error> {
     if value < 0 {
-        return Err(Error::InvalidArgument);
+        return Err(Error::InvalidArgument("inter overflow"));
     }
     Ok(value as usize)
 }

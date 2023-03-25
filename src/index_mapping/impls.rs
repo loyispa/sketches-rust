@@ -67,7 +67,6 @@ impl CubicallyInterpolatedMapping {
 }
 
 
-
 impl IndexMapping for CubicallyInterpolatedMapping {
     fn index(&self, value: f64) -> i32 {
         let index: f64 = self.log(value) * self.multiplier + self.index_offset;
@@ -105,6 +104,12 @@ impl IndexMapping for CubicallyInterpolatedMapping {
     }
 }
 
+impl ToString for CubicallyInterpolatedMapping {
+    fn to_string(&self) -> String {
+        format!("CubicallyInterpolatedMapping{{gamma:{},indexOffset: {}}}", self.gamma, self.index_offset)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::index_mapping::{IndexMapping};
@@ -112,7 +117,7 @@ mod tests {
 
     const TEST_GAMMAS: [f64; 3] = [1.0 + 1e-6, 1.02, 1.5];
     const TEST_INDEX_OFFSETS: [f64; 4] = [0.0, 1.0, -12.23, 7768.3];
-    const EPSILON:f64 = 1e-10;
+    const EPSILON: f64 = 1e-10;
 
     #[test]
     fn test_accuracy() {
@@ -144,7 +149,6 @@ mod tests {
 
     #[test]
     fn test_validity() {
-
         let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2);
 
         let min_index = -50;
@@ -154,7 +158,6 @@ mod tests {
         let mut bound = mapping.upper_bound(index - 1);
 
         while index <= max_index {
-
             assert!(f64::abs(mapping.lower_bound(index) - bound) <= 1e10);
             assert!(mapping.value(index) >= mapping.lower_bound(index));
             assert!(mapping.upper_bound(index) >= mapping.value(index));
@@ -166,8 +169,7 @@ mod tests {
             assert!(mapping.index(mapping.upper_bound(index) + EPSILON) > index);
 
             bound = mapping.upper_bound(index);
-            index +=1;
+            index += 1;
         }
     }
-
 }

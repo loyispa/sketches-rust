@@ -223,11 +223,6 @@ impl Store for CollapsingLowestDenseStore {
         }
     }
 
-    fn merge_with(&mut self, mut store: impl Store) {
-        for bin in store.get_descending_stream() {
-            self.add_bin(bin)
-        }
-    }
 
     fn clear(&mut self) {
         self.counts.fill(0.0);
@@ -329,11 +324,11 @@ impl Store for CollapsingLowestDenseStore {
     }
 
     fn get_descending_iter(&mut self) -> StoreIter {
-        StoreIter::new(self.min_index, self.max_index,self.offset,true, self.counts.as_slice())
+        StoreIter::new(self.min_index, self.max_index, self.offset, true, self.counts.as_slice())
     }
 
     fn get_ascending_iter(&mut self) -> StoreIter {
-        StoreIter::new(self.min_index, self.max_index,self.offset,false, self.counts.as_slice())
+        StoreIter::new(self.min_index, self.max_index, self.offset, false, self.counts.as_slice())
     }
 
     fn foreach<F>(&mut self, mut acceptor: F)
