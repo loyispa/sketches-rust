@@ -45,6 +45,5 @@ pub mod input;
 pub mod output;
 pub mod sketch;
 
-pub use self::sketch::{DDSketch};
-pub use self::error::{Error};
-
+pub use self::error::Error;
+pub use self::sketch::DDSketch;

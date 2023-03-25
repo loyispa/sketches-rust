@@ -1,4 +1,4 @@
-use crate::error::{Error};
+use crate::error::Error;
 use crate::input::Input;
 
 pub mod impls;
@@ -16,13 +16,18 @@ pub trait Store {
     fn get_total_count(&mut self) -> f64;
     fn get_min_index(&self) -> i32;
     fn get_max_index(&self) -> i32;
-    fn decode_and_merge_with(&mut self, input: &mut impl Input, mode: BinEncodingMode) -> Result<(), Error>;
+    fn decode_and_merge_with(
+        &mut self,
+        input: &mut impl Input,
+        mode: BinEncodingMode,
+    ) -> Result<(), Error>;
     fn get_descending_stream(&mut self) -> Vec<(i32, f64)>;
     fn get_ascending_stream(&mut self) -> Vec<(i32, f64)>;
     fn get_descending_iter(&mut self) -> StoreIter;
     fn get_ascending_iter(&mut self) -> StoreIter;
     fn foreach<F>(&mut self, acceptor: F)
-        where F: FnMut(i32, f64);
+    where
+        F: FnMut(i32, f64);
 }
 
 pub struct StoreIter<'a> {
@@ -34,8 +39,20 @@ pub struct StoreIter<'a> {
 }
 
 impl<'a> StoreIter<'a> {
-    pub fn new(min_index: i32, max_index: i32, offset: i32, desc: bool, counts: &'a [f64]) -> StoreIter {
-        StoreIter { desc, min_index, max_index, offset, counts }
+    pub fn new(
+        min_index: i32,
+        max_index: i32,
+        offset: i32,
+        desc: bool,
+        counts: &'a [f64],
+    ) -> StoreIter {
+        StoreIter {
+            desc,
+            min_index,
+            max_index,
+            offset,
+            counts,
+        }
     }
 }
 
@@ -93,10 +110,10 @@ impl BinEncodingMode {
     pub fn of_flag(marker: u8) -> Result<BinEncodingMode, Error> {
         let index = (marker >> 2) - 1;
         match index {
-            0 => { Ok(BinEncodingMode::IndexDeltasAndCounts) }
-            1 => { Ok(BinEncodingMode::IndexDeltas) }
-            2 => { Ok(BinEncodingMode::ContiguousCounts) }
-            _ => { Err(Error::InvalidArgument("marker")) }
+            0 => Ok(BinEncodingMode::IndexDeltasAndCounts),
+            1 => Ok(BinEncodingMode::IndexDeltas),
+            2 => Ok(BinEncodingMode::ContiguousCounts),
+            _ => Err(Error::InvalidArgument("marker")),
         }
     }
 }

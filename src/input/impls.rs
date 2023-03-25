@@ -1,6 +1,6 @@
-use std::io::ErrorKind;
-use crate::error::Error;
 use super::Input;
+use crate::error::Error;
+use std::io::ErrorKind;
 
 pub struct DefaultInput {
     vec: Vec<u8>,
@@ -10,7 +10,11 @@ pub struct DefaultInput {
 
 impl DefaultInput {
     pub fn wrap(vec: Vec<u8>) -> DefaultInput {
-        DefaultInput { pos: 0, end: vec.len(), vec }
+        DefaultInput {
+            pos: 0,
+            end: vec.len(),
+            vec,
+        }
     }
 }
 
@@ -41,7 +45,7 @@ impl Input for DefaultInput {
             self.vec[self.pos + 4],
             self.vec[self.pos + 5],
             self.vec[self.pos + 6],
-            self.vec[self.pos + 7]
+            self.vec[self.pos + 7],
         ]);
         self.pos += 8;
         Ok(value)
