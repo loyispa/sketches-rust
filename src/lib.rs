@@ -30,7 +30,7 @@ Also you could merge other DDSketch:
     d2.accept(2.0);
     d2.accept(3.0);
     assert_eq!(3.0,  d2.get_count());
-    d2.merge_with(&mut d1);
+    d2.merge_with(&mut d1).unwrap();
     assert_eq!(6.0,  d2.get_count());
 ```
 
