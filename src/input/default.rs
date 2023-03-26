@@ -1,4 +1,4 @@
-use super::Input;
+use super::*;
 use crate::error::Error;
 use std::io::ErrorKind;
 

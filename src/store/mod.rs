@@ -2,7 +2,13 @@ use crate::error::Error;
 use crate::input::Input;
 use crate::util::serde;
 
-pub mod impls;
+mod collapsing_highest;
+mod collapsing_lowest;
+mod unbounded;
+
+pub use collapsing_highest::CollapsingHighestDenseStore;
+pub use collapsing_lowest::CollapsingLowestDenseStore;
+pub use unbounded::UnboundedSizeDenseStore;
 
 pub trait Store {
     fn add(&mut self, index: i32, count: f64);
@@ -161,5 +167,55 @@ impl BinEncodingMode {
             2 => Ok(BinEncodingMode::ContiguousCounts),
             _ => Err(Error::InvalidArgument("marker")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_store_add1() {
+        let mut store = CollapsingLowestDenseStore::new(5);
+        store.add(0, 1.0);
+        store.add(1, 2.0);
+        store.add(2, 1.0);
+        store.add(11, 1.0);
+        store.add(12, 1.0);
+        store.add(3, 1.0);
+        store.add(4, 1.0);
+        assert_eq!(8, store.get_min_index());
+        assert_eq!(12, store.get_max_index());
+        assert_eq!(8.0, store.get_total_count());
+    }
+
+    #[test]
+    fn test_store_add2() {
+        let mut store = CollapsingHighestDenseStore::new(5);
+        store.add(0, 1.0);
+        store.add(1, 2.0);
+        store.add(2, 1.0);
+        store.add(11, 1.0);
+        store.add(12, 1.0);
+        store.add(3, 1.0);
+        store.add(4, 1.0);
+        assert_eq!(0, store.get_min_index());
+        assert_eq!(4, store.get_max_index());
+        assert_eq!(8.0, store.get_total_count());
+    }
+
+    #[test]
+    fn test_store_add3() {
+        let mut store = UnboundedSizeDenseStore::new();
+        store.add(0, 1.0);
+        store.add(1, 2.0);
+        store.add(2, 1.0);
+        store.add(11, 1.0);
+        store.add(12, 1.0);
+        store.add(3, 1.0);
+        store.add(4, 1.0);
+        assert_eq!(0, store.get_min_index());
+        assert_eq!(12, store.get_max_index());
+        assert_eq!(8.0, store.get_total_count());
     }
 }

@@ -1,7 +1,8 @@
 use crate::error::Error;
 use Result;
 
-pub mod impls;
+mod default;
+pub use default::DefaultOutput;
 
 pub trait Output {
     fn write_byte(&mut self, value: u8) -> Result<(), Error>;

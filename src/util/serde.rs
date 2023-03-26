@@ -101,7 +101,7 @@ pub fn ignore_exact_summary_statistic_flags(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::impls::DefaultInput;
+    use crate::input::DefaultInput;
 
     #[test]
     fn test_decode_var_double() {
