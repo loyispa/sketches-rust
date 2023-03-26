@@ -38,12 +38,12 @@ Also you could merge other DDSketch:
 
 mod error;
 mod index_mapping;
+mod input;
+mod output;
+mod sketch;
 mod store;
 mod util;
 
-pub mod input;
-pub mod output;
-pub mod sketch;
-
 pub use self::error::Error;
+pub use self::input::DefaultInput;
 pub use self::sketch::DDSketch;

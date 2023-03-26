@@ -1,6 +1,7 @@
 use crate::error::Error;
 
-pub mod impls;
+mod default;
+pub use default::DefaultInput;
 
 pub trait Input {
     fn has_remaining(&self) -> bool;

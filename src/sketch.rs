@@ -1,11 +1,12 @@
 use crate::error::Error;
-use crate::index_mapping::impls::{CubicallyInterpolatedMapping, LogarithmicMapping};
-use crate::index_mapping::{IndexMapping, IndexMappingLayout};
-use crate::input::Input;
-use crate::store::impls::{
-    CollapsingHighestDenseStore, CollapsingLowestDenseStore, UnboundedSizeDenseStore,
+use crate::index_mapping::{
+    CubicallyInterpolatedMapping, IndexMapping, IndexMappingLayout, LogarithmicMapping,
 };
-use crate::store::{BinEncodingMode, Store};
+use crate::input::Input;
+use crate::store::{
+    BinEncodingMode, CollapsingHighestDenseStore, CollapsingLowestDenseStore, Store,
+    UnboundedSizeDenseStore,
+};
 use crate::util::serde;
 
 pub struct DDSketch<I: IndexMapping, S: Store> {
@@ -181,17 +182,28 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
                 }
                 FlagType::IndexMapping => {
                     let layout = IndexMappingLayout::of_flag(&flag)?;
+                    let gamma = input.read_double_le()?;
+                    let index_offset = input.read_double_le()?;
                     match layout {
                         IndexMappingLayout::LogCubic => {
                             let decoded_index_mapping =
-                                CubicallyInterpolatedMapping::decode(input)?;
-
+                                CubicallyInterpolatedMapping::with_gamma_offset(
+                                    gamma,
+                                    index_offset,
+                                );
+                            if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
+                                return Err(Error::InvalidArgument("Unmatched IndexMapping"));
+                            }
+                        }
+                        IndexMappingLayout::LOG => {
+                            let decoded_index_mapping =
+                                LogarithmicMapping::with_gamma_offset(gamma, index_offset);
                             if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
                                 return Err(Error::InvalidArgument("Unmatched IndexMapping"));
                             }
                         }
                         _ => {
-                            return Err(Error::InvalidArgument("IndexMapping"));
+                            return Err(Error::InvalidArgument("Unsupported IndexMapping"));
                         }
                     }
                 }
@@ -372,7 +384,7 @@ impl FlagType {
 
 #[cfg(test)]
 mod tests {
-    use crate::input::impls::DefaultInput;
+    use crate::input::DefaultInput;
 
     use super::*;
 
