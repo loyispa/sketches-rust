@@ -17,14 +17,14 @@ Below will be add in the future:
 
 # Usage
 ```rust
-use sketches_rust::DDSketch;
-let mut d = DDSketch::collapsing_lowest_dense(0.02,100);
+let mut d = DDSketch::collapsing_lowest_dense(0.02, 100).unwrap();
 d.accept(1.0);
 d.accept(2.0);
 d.accept(3.0);
-let c = d.get_count();
-assert_eq!(c, 3.0);
-let q = d.get_value_at_quantile(0.5).unwrap();
-assert!(q < 2.01 && q > 1.99);
+assert_eq!(d.get_count(), 3.0);
+println!("{}", d.get_max().unwrap());
+println!("{}", d.get_min().unwrap());
+println!("{}", d.get_sum().unwrap());
+println!("{}", d.get_average().unwrap());
 ```
 
