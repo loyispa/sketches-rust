@@ -1,7 +1,7 @@
 use super::*;
-use crate::util::serde;
+use crate::serde;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct UnboundedSizeDenseStore {
     counts: Vec<f64>,
     offset: i32,
@@ -12,7 +12,7 @@ pub struct UnboundedSizeDenseStore {
 }
 
 impl UnboundedSizeDenseStore {
-    pub fn new() -> UnboundedSizeDenseStore {
+    pub fn new() -> Self {
         UnboundedSizeDenseStore {
             counts: Vec::new(),
             offset: 0,

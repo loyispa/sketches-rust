@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::input::Input;
-use crate::util::serde;
+use crate::serde;
 
 mod collapsing_highest;
 mod collapsing_lowest;
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_store_add1() {
-        let mut store = CollapsingLowestDenseStore::new(5);
+        let mut store = CollapsingLowestDenseStore::with_capacity(5).unwrap();
         store.add(0, 1.0);
         store.add(1, 2.0);
         store.add(2, 1.0);
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     fn test_store_add2() {
-        let mut store = CollapsingHighestDenseStore::new(5);
+        let mut store = CollapsingHighestDenseStore::with_capacity(5).unwrap();
         store.add(0, 1.0);
         store.add(1, 2.0);
         store.add(2, 1.0);

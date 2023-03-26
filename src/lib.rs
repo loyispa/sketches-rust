@@ -7,7 +7,7 @@ Add multiple samples to a DDSketch and invoke the `get_value_at_quantile` method
 
 ```rust
     use self::sketches_rust::DDSketch;
-    let mut d = DDSketch::collapsing_lowest_dense(0.02,100);
+    let mut d = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
     d.accept(1.0);
     d.accept(2.0);
     d.accept(3.0);
@@ -20,12 +20,12 @@ Add multiple samples to a DDSketch and invoke the `get_value_at_quantile` method
 Also you could merge other DDSketch:
 ```rust
     use self::sketches_rust::DDSketch;
-    let mut d1 = DDSketch::collapsing_lowest_dense(0.02,100);
+    let mut d1 = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
     d1.accept(1.0);
     d1.accept(2.0);
     d1.accept(3.0);
     assert_eq!(3.0,  d1.get_count());
-    let mut d2 = DDSketch::collapsing_lowest_dense(0.02,100);
+    let mut d2 = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
     d2.accept(1.0);
     d2.accept(2.0);
     d2.accept(3.0);
@@ -42,7 +42,7 @@ mod input;
 mod output;
 mod sketch;
 mod store;
-mod util;
+mod serde;
 
 pub use self::error::Error;
 pub use self::input::DefaultInput;

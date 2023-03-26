@@ -13,17 +13,23 @@ impl LogarithmicMapping {
     const CORRECTING_FACTOR: f64 = 1.0;
     const BASE: f64 = std::f64::consts::E;
 
-    pub fn with_relative_accuracy(relative_accuracy: f64) -> LogarithmicMapping {
+    pub fn with_relative_accuracy(relative_accuracy: f64) -> Result<LogarithmicMapping, Error> {
+        if relative_accuracy <= 0.0 || relative_accuracy >= 1.0 {
+            return Err(Error::InvalidArgument(
+                "The relative accuracy must be between 0 and 1.",
+            ));
+        }
+
         let gamma = calculate_gamma(relative_accuracy, LogarithmicMapping::CORRECTING_FACTOR);
         let index_offset: f64 = 0.0;
         let multiplier = LogarithmicMapping::BASE.ln() / gamma.ln();
         let relative_accuracy = calculate_relative_accuracy(gamma, 1.0);
-        LogarithmicMapping {
+        Ok(LogarithmicMapping {
             relative_accuracy,
             gamma,
             index_offset,
             multiplier,
-        }
+        })
     }
 
     pub fn with_gamma_offset(gamma: f64, index_offset: f64) -> LogarithmicMapping {

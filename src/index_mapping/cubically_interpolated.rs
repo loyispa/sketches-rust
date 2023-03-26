@@ -1,6 +1,6 @@
 use super::*;
 use crate::index_mapping::IndexMapping;
-use crate::util::serde;
+use crate::serde;
 
 #[derive(PartialEq)]
 pub struct CubicallyInterpolatedMapping {
@@ -17,7 +17,14 @@ impl CubicallyInterpolatedMapping {
     const CORRECTING_FACTOR: f64 = 1.0 / (CubicallyInterpolatedMapping::C * std::f64::consts::LN_2);
     const BASE: f64 = 2.0;
 
-    pub fn with_relative_accuracy(relative_accuracy: f64) -> CubicallyInterpolatedMapping {
+    pub fn with_relative_accuracy(
+        relative_accuracy: f64,
+    ) -> Result<CubicallyInterpolatedMapping, Error> {
+        if relative_accuracy <= 0.0 || relative_accuracy >= 1.0 {
+            return Err(Error::InvalidArgument(
+                "The relative accuracy must be between 0 and 1.",
+            ));
+        }
         let gamma = calculate_gamma(
             relative_accuracy,
             CubicallyInterpolatedMapping::CORRECTING_FACTOR,
@@ -26,12 +33,12 @@ impl CubicallyInterpolatedMapping {
         let multiplier = CubicallyInterpolatedMapping::BASE.ln() / gamma.ln();
         let relative_accuracy =
             calculate_relative_accuracy(gamma, CubicallyInterpolatedMapping::CORRECTING_FACTOR);
-        CubicallyInterpolatedMapping {
+        Ok(CubicallyInterpolatedMapping {
             relative_accuracy,
             gamma,
             index_offset,
             multiplier,
-        }
+        })
     }
 
     pub fn with_gamma_offset(gamma: f64, index_offset: f64) -> CubicallyInterpolatedMapping {
