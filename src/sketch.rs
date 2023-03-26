@@ -7,7 +7,7 @@ use crate::store::{
     BinEncodingMode, CollapsingHighestDenseStore, CollapsingLowestDenseStore, Store,
     UnboundedSizeDenseStore,
 };
-use crate::util::serde;
+use crate::serde;
 
 pub struct DDSketch<I: IndexMapping, S: Store> {
     index_mapping: I,
@@ -73,7 +73,12 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
             + self.positive_value_store.get_total_count()
     }
 
-    pub fn get_sum(&mut self) -> f64 {
+    pub fn get_sum(&mut self) -> Option<f64> {
+        let count = self.get_count();
+        if count <= 0.0 {
+            return None;
+        }
+
         let mut sum = 0.0;
 
         self.negative_value_store.foreach(|index: i32, count: f64| {
@@ -84,57 +89,63 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
             sum += self.index_mapping.value(index) * count;
         });
 
-        sum
+        Some(sum)
     }
 
-    pub fn get_max(&mut self) -> Result<f64, Error> {
+    pub fn get_max(&mut self) -> Option<f64> {
         return if !self.positive_value_store.is_empty() {
-            Ok(self
-                .index_mapping
-                .value(self.positive_value_store.get_max_index()))
+            Some(
+                self.index_mapping
+                    .value(self.positive_value_store.get_max_index()),
+            )
         } else if self.zero_count > 0.0 {
-            Ok(0.0)
+            Some(0.0)
         } else if !self.negative_value_store.is_empty() {
-            Ok(-self
-                .index_mapping
-                .value(self.negative_value_store.get_min_index()))
+            Some(
+                -self
+                    .index_mapping
+                    .value(self.negative_value_store.get_min_index()),
+            )
         } else {
-            Err(Error::NoSuchElement)
+            None
         };
     }
 
-    pub fn get_min(&mut self) -> Result<f64, Error> {
+    pub fn get_min(&mut self) -> Option<f64> {
         return if !self.negative_value_store.is_empty() {
-            Ok(-self
-                .index_mapping
-                .value(self.negative_value_store.get_max_index()))
+            Some(
+                -self
+                    .index_mapping
+                    .value(self.negative_value_store.get_max_index()),
+            )
         } else if self.zero_count > 0.0 {
-            Ok(0.0)
+            Some(0.0)
         } else if !self.positive_value_store.is_empty() {
-            Ok(self
-                .index_mapping
-                .value(self.positive_value_store.get_min_index()))
+            Some(
+                self.index_mapping
+                    .value(self.positive_value_store.get_min_index()),
+            )
         } else {
-            Err(Error::NoSuchElement)
+            None
         };
     }
 
-    pub fn get_average(&mut self) -> Result<f64, Error> {
+    pub fn get_average(&mut self) -> Option<f64> {
         let count = self.get_count();
         if count <= 0.0 {
-            return Err(Error::InvalidArgument("count <= 0"));
+            return None;
         }
-        return Ok(self.get_sum() / count);
+        return Some(self.get_sum()? / count);
     }
 
-    pub fn get_value_at_quantile(self: &mut DDSketch<I, S>, quantile: f64) -> Result<f64, Error> {
+    pub fn get_value_at_quantile(self: &mut DDSketch<I, S>, quantile: f64) -> Option<f64> {
         if quantile < 0.0 || quantile > 1.0 {
-            return Err(Error::InvalidArgument("quantile"));
+            return None;
         }
 
         let count = self.get_count();
         if count <= 0.0 {
-            return Err(Error::NoSuchElement);
+            return None;
         }
 
         let rank = quantile * (count - 1.0);
@@ -145,24 +156,24 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         for bin in negative_bin_iterator {
             n += bin.1;
             if n > rank {
-                return Ok(-self.index_mapping.value(bin.0));
+                return Some(-self.index_mapping.value(bin.0));
             }
         }
 
         n += self.zero_count;
         if n > rank {
-            return Ok(0.0);
+            return Some(0.0);
         }
 
         let positive_bin_iterator = self.positive_value_store.get_ascending_iter();
         for bin in positive_bin_iterator {
             n += bin.1;
             if n > rank {
-                return Ok(self.index_mapping.value(bin.0));
+                return Some(self.index_mapping.value(bin.0));
             }
         }
 
-        Err(Error::NoSuchElement)
+        None
     }
 
     pub fn decode_and_merge_with(&mut self, input: &mut impl Input) -> Result<(), Error> {
@@ -234,109 +245,112 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
 impl DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
     pub fn collapsing_lowest_dense(
         relative_accuracy: f64,
-        max_num_bins: i32,
-    ) -> DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
-        let index_mapping = CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy);
-        let negative_value_store = CollapsingLowestDenseStore::new(max_num_bins);
-        let positive_value_store = CollapsingLowestDenseStore::new(max_num_bins);
+        max_num_bins: usize,
+    ) -> Result<DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore>, Error> {
+        let index_mapping =
+            CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy)?;
+        let negative_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
+        let positive_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
         let max_indexed_value = index_mapping.max_indexable_value();
         let zero_count = 0.0;
-        DDSketch {
+        Ok(DDSketch {
             index_mapping,
             negative_value_store,
             positive_value_store,
             min_indexed_value,
             max_indexed_value,
             zero_count,
-        }
+        })
     }
 }
 
 impl DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore> {
     pub fn collapsing_highest_dense(
         relative_accuracy: f64,
-        max_num_bins: i32,
-    ) -> DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore> {
-        let index_mapping = CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy);
-        let negative_value_store = CollapsingHighestDenseStore::new(max_num_bins);
-        let positive_value_store = CollapsingHighestDenseStore::new(max_num_bins);
+        max_num_bins: usize,
+    ) -> Result<DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore>, Error> {
+        let index_mapping =
+            CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy)?;
+        let negative_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
+        let positive_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
         let max_indexed_value = index_mapping.max_indexable_value();
         let zero_count = 0.0;
-        DDSketch {
+        Ok(DDSketch {
             index_mapping,
             negative_value_store,
             positive_value_store,
             min_indexed_value,
             max_indexed_value,
             zero_count,
-        }
+        })
     }
 }
 
 impl DDSketch<CubicallyInterpolatedMapping, UnboundedSizeDenseStore> {
     pub fn unbounded_dense(
         relative_accuracy: f64,
-    ) -> DDSketch<CubicallyInterpolatedMapping, UnboundedSizeDenseStore> {
-        let index_mapping = CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy);
+    ) -> Result<DDSketch<CubicallyInterpolatedMapping, UnboundedSizeDenseStore>, Error> {
+        let index_mapping =
+            CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy)?;
         let negative_value_store = UnboundedSizeDenseStore::new();
         let positive_value_store = UnboundedSizeDenseStore::new();
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
         let max_indexed_value = index_mapping.max_indexable_value();
         let zero_count = 0.0;
-        DDSketch {
+        Ok(DDSketch {
             index_mapping,
             negative_value_store,
             positive_value_store,
             min_indexed_value,
             max_indexed_value,
             zero_count,
-        }
+        })
     }
 }
 
 impl DDSketch<LogarithmicMapping, CollapsingLowestDenseStore> {
     pub fn logarithmic_collapsing_lowest_dense(
         relative_accuracy: f64,
-        max_num_bins: i32,
-    ) -> DDSketch<LogarithmicMapping, CollapsingLowestDenseStore> {
-        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy);
-        let negative_value_store = CollapsingLowestDenseStore::new(max_num_bins);
-        let positive_value_store = CollapsingLowestDenseStore::new(max_num_bins);
+        max_num_bins: usize,
+    ) -> Result<DDSketch<LogarithmicMapping, CollapsingLowestDenseStore>, Error> {
+        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy)?;
+        let negative_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
+        let positive_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
         let max_indexed_value = index_mapping.max_indexable_value();
         let zero_count = 0.0;
-        DDSketch {
+        Ok(DDSketch {
             index_mapping,
             negative_value_store,
             positive_value_store,
             min_indexed_value,
             max_indexed_value,
             zero_count,
-        }
+        })
     }
 }
 
 impl DDSketch<LogarithmicMapping, CollapsingHighestDenseStore> {
     pub fn logarithmic_collapsing_highest_dense(
         relative_accuracy: f64,
-        max_num_bins: i32,
-    ) -> DDSketch<LogarithmicMapping, CollapsingHighestDenseStore> {
-        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy);
-        let negative_value_store = CollapsingHighestDenseStore::new(max_num_bins);
-        let positive_value_store = CollapsingHighestDenseStore::new(max_num_bins);
+        max_num_bins: usize,
+    ) -> Result<DDSketch<LogarithmicMapping, CollapsingHighestDenseStore>, Error> {
+        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy)?;
+        let negative_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
+        let positive_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
         let max_indexed_value = index_mapping.max_indexable_value();
         let zero_count = 0.0;
-        DDSketch {
+        Ok(DDSketch {
             index_mapping,
             negative_value_store,
             positive_value_store,
             min_indexed_value,
             max_indexed_value,
             zero_count,
-        }
+        })
     }
 }
 
@@ -390,7 +404,7 @@ mod tests {
 
     #[test]
     fn test_sketch_quantile_0() {
-        let mut sketch = DDSketch::collapsing_lowest_dense(0.02, 100);
+        let mut sketch = DDSketch::collapsing_lowest_dense(0.02, 100).unwrap();
         sketch.accept(1.0);
         sketch.accept(2.0);
         sketch.accept(3.0);
@@ -404,7 +418,7 @@ mod tests {
 
     #[test]
     fn test_sketch_quantile_1() {
-        let mut sketch = DDSketch::collapsing_highest_dense(0.02, 100);
+        let mut sketch = DDSketch::collapsing_highest_dense(0.02, 100).unwrap();
         sketch.accept(1.0);
         sketch.accept(2.0);
         sketch.accept(3.0);
@@ -418,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_sketch_quantile_2() {
-        let mut sketch = DDSketch::unbounded_dense(0.02);
+        let mut sketch = DDSketch::unbounded_dense(0.02).unwrap();
         sketch.accept(1.0);
         sketch.accept(2.0);
         sketch.accept(3.0);
@@ -432,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_sketch_quantile_3() {
-        let mut sketch = DDSketch::logarithmic_collapsing_lowest_dense(0.02, 100);
+        let mut sketch = DDSketch::logarithmic_collapsing_lowest_dense(0.02, 100).unwrap();
         sketch.accept(1.0);
         sketch.accept(2.0);
         sketch.accept(3.0);
@@ -446,7 +460,7 @@ mod tests {
 
     #[test]
     fn test_sketch_quantile_4() {
-        let mut sketch = DDSketch::logarithmic_collapsing_highest_dense(0.02, 100);
+        let mut sketch = DDSketch::logarithmic_collapsing_highest_dense(0.02, 100).unwrap();
         sketch.accept(1.0);
         sketch.accept(2.0);
         sketch.accept(3.0);
@@ -462,7 +476,7 @@ mod tests {
     fn test_sketch_add() {
         let accuracy = 2e-2;
 
-        let mut sketch = DDSketch::collapsing_lowest_dense(accuracy, 50);
+        let mut sketch = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
 
         for i in -99..101 {
             sketch.accept(i as f64);
@@ -472,19 +486,19 @@ mod tests {
         assert!((f64::abs(sketch.get_min().unwrap() - -99.0) / -99.0) <= accuracy);
         assert!((f64::abs(sketch.get_max().unwrap() - 100.0) / 100.0) <= accuracy);
         assert!((f64::abs(sketch.get_average().unwrap() - 0.5) / 0.5) <= accuracy);
-        assert!((f64::abs(sketch.get_sum() - 100.0) / 100.0) <= accuracy);
+        assert!((f64::abs(sketch.get_sum().unwrap() - 100.0) / 100.0) <= accuracy);
     }
 
     #[test]
     fn test_sketch_merge() {
         let accuracy = 2e-2;
 
-        let mut sketch1 = DDSketch::collapsing_lowest_dense(accuracy, 50);
+        let mut sketch1 = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
         for i in -99..101 {
             sketch1.accept(i as f64);
         }
 
-        let mut sketch2 = DDSketch::collapsing_lowest_dense(accuracy, 50);
+        let mut sketch2 = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
         for i in 100..200 {
             sketch2.accept(i as f64);
         }
@@ -501,7 +515,7 @@ mod tests {
             150, 241, 16, 20, 148, 191, 96, 14, 142, 62, 12, 139, 16, 10, 134, 96, 8, 3, 6, 2, 6,
             2, 6, 2, 4, 2, 42, 2, 26, 2, 6, 2, 20, 2, 6, 2, 2, 2, 10, 2, 20, 2, 14, 2, 10, 2,
         ]);
-        let mut sketch = DDSketch::collapsing_lowest_dense(accuracy, 50);
+        let mut sketch = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
         sketch.decode_and_merge_with(&mut input).unwrap();
         assert_eq!(4538.0, sketch.get_count());
     }

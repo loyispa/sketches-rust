@@ -1,5 +1,5 @@
 use super::*;
-use crate::util::serde;
+use crate::serde;
 
 #[derive(Clone)]
 pub struct CollapsingLowestDenseStore {
@@ -14,8 +14,12 @@ pub struct CollapsingLowestDenseStore {
 }
 
 impl CollapsingLowestDenseStore {
-    pub fn new(max_num_bins: i32) -> CollapsingLowestDenseStore {
-        CollapsingLowestDenseStore {
+    pub fn with_capacity(capacity: usize) -> Result<Self, Error> {
+        if capacity > 2147483647 {
+            return Err(Error::InvalidArgument("Too large store capacity."));
+        }
+        let max_num_bins = capacity as i32;
+        Ok(CollapsingLowestDenseStore {
             max_num_bins,
             is_collapsed: false,
             counts: Vec::new(),
@@ -24,7 +28,7 @@ impl CollapsingLowestDenseStore {
             max_index: i32::MIN,
             array_length_growth_increment: 64,
             array_length_overhead: 6,
-        }
+        })
     }
 
     fn normalize(&mut self, index: i32) -> i32 {

@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn test_validity() {
-        let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2);
+        let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2).unwrap();
 
         let min_index = -50;
         let max_index = 50;
