@@ -5,9 +5,9 @@ pub struct DefaultOutput {
 }
 
 impl DefaultOutput {
-    pub fn new(size: usize) -> DefaultOutput {
+    pub fn with_capacity(capacity: usize) -> DefaultOutput {
         DefaultOutput {
-            vec: Vec::with_capacity(size),
+            vec: Vec::with_capacity(capacity),
         }
     }
 }
