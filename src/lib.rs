@@ -40,9 +40,9 @@ mod error;
 mod index_mapping;
 mod input;
 mod output;
+mod serde;
 mod sketch;
 mod store;
-mod serde;
 
 pub use self::error::Error;
 pub use self::input::DefaultInput;

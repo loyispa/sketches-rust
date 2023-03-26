@@ -16,7 +16,9 @@ pub struct CollapsingLowestDenseStore {
 impl CollapsingLowestDenseStore {
     pub fn with_capacity(capacity: usize) -> Result<Self, Error> {
         if capacity > 2147483647 {
-            return Err(Error::InvalidArgument("Too large store capacity."));
+            return Err(Error::InvalidArgument(
+                "Too large capacity: should be between 1 and 2147483648.",
+            ));
         }
         let max_num_bins = capacity as i32;
         Ok(CollapsingLowestDenseStore {

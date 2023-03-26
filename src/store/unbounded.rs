@@ -141,13 +141,6 @@ impl UnboundedSizeDenseStore {
         }
         total_count
     }
-
-    fn reset_counts(&mut self, from_index: i32, to_index: i32) {
-        // Arrays.fill(counts, from_index - self.offset, to_index - self.offset + 1, 0);
-        for index in (from_index - self.offset)..(to_index - self.offset + 1) {
-            self.counts[index as usize] = 0.0;
-        }
-    }
 }
 
 impl Store for UnboundedSizeDenseStore {

@@ -48,14 +48,14 @@ pub fn decode_var_double(input: &mut impl Input) -> Result<f64, Error> {
 pub fn i64_to_i32_exact(value: i64) -> Result<i32, Error> {
     let v = value as i32;
     if value != v as i64 {
-        return Err(Error::InvalidArgument("inter overflow"));
+        return Err(Error::InvalidArgument("Value is not valid i32."));
     }
     Ok(v)
 }
 
 pub fn i32_to_usize_exact(value: i32) -> Result<usize, Error> {
     if value < 0 {
-        return Err(Error::InvalidArgument("inter overflow"));
+        return Err(Error::InvalidArgument("Value should be grate than 0."));
     }
     Ok(value as usize)
 }
@@ -94,7 +94,7 @@ pub fn ignore_exact_summary_statistic_flags(
         input.read_double_le()?;
         Ok(())
     } else {
-        Err(Error::InvalidArgument("unknown flag"))
+        Err(Error::InvalidArgument("Unknown Flag."))
     };
 }
 

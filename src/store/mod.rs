@@ -165,7 +165,7 @@ impl BinEncodingMode {
             0 => Ok(BinEncodingMode::IndexDeltasAndCounts),
             1 => Ok(BinEncodingMode::IndexDeltas),
             2 => Ok(BinEncodingMode::ContiguousCounts),
-            _ => Err(Error::InvalidArgument("marker")),
+            _ => Err(Error::InvalidArgument("Unknown BinEncodingMode.")),
         }
     }
 }
@@ -175,47 +175,44 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_store_add1() {
-        let mut store = CollapsingLowestDenseStore::with_capacity(5).unwrap();
-        store.add(0, 1.0);
-        store.add(1, 2.0);
-        store.add(2, 1.0);
-        store.add(11, 1.0);
-        store.add(12, 1.0);
-        store.add(3, 1.0);
-        store.add(4, 1.0);
-        assert_eq!(8, store.get_min_index());
+    fn test_collapsing_lowest_dense_store_add() {
+        let mut store = CollapsingLowestDenseStore::with_capacity(10).unwrap();
+        let indexes = vec![
+            66, 14, 95, 71, 63, 28, 80, 54, 67, 41, 4, 24, 93, 73, 37, 37, 51, 49, 22, 90,
+        ];
+        for i in indexes {
+            store.add(i, 1.0);
+        }
+        assert_eq!(95, store.get_max_index());
+        assert_eq!(86, store.get_min_index());
+        assert_eq!(20.0, store.get_total_count());
+    }
+
+    #[test]
+    fn test_collapsing_highest_dense_store_add() {
+        let mut store = CollapsingHighestDenseStore::with_capacity(10).unwrap();
+        let indexes = vec![
+            40, 22, 42, 79, 33, 62, 14, 79, 98, 76, 83, 31, 3, 92, 79, 6, 76, 56, 79, 6,
+        ];
+        for i in indexes {
+            store.add(i, 1.0);
+        }
         assert_eq!(12, store.get_max_index());
-        assert_eq!(8.0, store.get_total_count());
+        assert_eq!(3, store.get_min_index());
+        assert_eq!(20.0, store.get_total_count());
     }
 
     #[test]
-    fn test_store_add2() {
-        let mut store = CollapsingHighestDenseStore::with_capacity(5).unwrap();
-        store.add(0, 1.0);
-        store.add(1, 2.0);
-        store.add(2, 1.0);
-        store.add(11, 1.0);
-        store.add(12, 1.0);
-        store.add(3, 1.0);
-        store.add(4, 1.0);
-        assert_eq!(0, store.get_min_index());
-        assert_eq!(4, store.get_max_index());
-        assert_eq!(8.0, store.get_total_count());
-    }
-
-    #[test]
-    fn test_store_add3() {
+    fn test_unbounded_size_dense_store_add() {
         let mut store = UnboundedSizeDenseStore::new();
-        store.add(0, 1.0);
-        store.add(1, 2.0);
-        store.add(2, 1.0);
-        store.add(11, 1.0);
-        store.add(12, 1.0);
-        store.add(3, 1.0);
-        store.add(4, 1.0);
-        assert_eq!(0, store.get_min_index());
-        assert_eq!(12, store.get_max_index());
-        assert_eq!(8.0, store.get_total_count());
+        let indexes = vec![
+            17, 32, 6, 42, 24, 75, 56, 58, 28, 10, 76, 43, 90, 59, 17, 17, 34, 47, 56, 32,
+        ];
+        for i in indexes {
+            store.add(i, 1.0);
+        }
+        assert_eq!(90, store.get_max_index());
+        assert_eq!(6, store.get_min_index());
+        assert_eq!(20.0, store.get_total_count());
     }
 }
