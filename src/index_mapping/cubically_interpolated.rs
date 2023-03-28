@@ -17,42 +17,6 @@ impl CubicallyInterpolatedMapping {
     const CORRECTING_FACTOR: f64 = 1.0 / (CubicallyInterpolatedMapping::C * std::f64::consts::LN_2);
     const BASE: f64 = 2.0;
 
-    pub fn with_relative_accuracy(
-        relative_accuracy: f64,
-    ) -> Result<CubicallyInterpolatedMapping, Error> {
-        if relative_accuracy <= 0.0 || relative_accuracy >= 1.0 {
-            return Err(Error::InvalidArgument(
-                "The relative accuracy must be between 0 and 1.",
-            ));
-        }
-        let gamma = calculate_gamma(
-            relative_accuracy,
-            CubicallyInterpolatedMapping::CORRECTING_FACTOR,
-        );
-        let index_offset: f64 = 0.0;
-        let multiplier = CubicallyInterpolatedMapping::BASE.ln() / gamma.ln();
-        let relative_accuracy =
-            calculate_relative_accuracy(gamma, CubicallyInterpolatedMapping::CORRECTING_FACTOR);
-        Ok(CubicallyInterpolatedMapping {
-            relative_accuracy,
-            gamma,
-            index_offset,
-            multiplier,
-        })
-    }
-
-    pub fn with_gamma_offset(gamma: f64, index_offset: f64) -> CubicallyInterpolatedMapping {
-        let multiplier = CubicallyInterpolatedMapping::BASE.ln() / gamma.ln();
-        let relative_accuracy =
-            calculate_relative_accuracy(gamma, CubicallyInterpolatedMapping::CORRECTING_FACTOR);
-        CubicallyInterpolatedMapping {
-            relative_accuracy,
-            gamma,
-            index_offset,
-            multiplier,
-        }
-    }
-
     fn log(&self, value: f64) -> f64 {
         let long_bits = value.to_bits() as i64;
         let s: f64 = serde::get_significand_plus_one(long_bits) - 1.0;
@@ -132,6 +96,45 @@ impl IndexMapping for CubicallyInterpolatedMapping {
             ),
             f64::MAX / (1.0 + self.relative_accuracy),
         )
+    }
+
+    fn with_relative_accuracy(
+        relative_accuracy: f64,
+    ) -> Result<CubicallyInterpolatedMapping, Error> {
+        if relative_accuracy <= 0.0 || relative_accuracy >= 1.0 {
+            return Err(Error::InvalidArgument(
+                "The relative accuracy must be between 0 and 1.",
+            ));
+        }
+        let gamma = calculate_gamma(
+            relative_accuracy,
+            CubicallyInterpolatedMapping::CORRECTING_FACTOR,
+        );
+        let index_offset: f64 = 0.0;
+        let multiplier = CubicallyInterpolatedMapping::BASE.ln() / gamma.ln();
+        let relative_accuracy =
+            calculate_relative_accuracy(gamma, CubicallyInterpolatedMapping::CORRECTING_FACTOR);
+        Ok(CubicallyInterpolatedMapping {
+            relative_accuracy,
+            gamma,
+            index_offset,
+            multiplier,
+        })
+    }
+
+    fn with_gamma_offset(
+        gamma: f64,
+        index_offset: f64,
+    ) -> Result<CubicallyInterpolatedMapping, Error> {
+        let multiplier = CubicallyInterpolatedMapping::BASE.ln() / gamma.ln();
+        let relative_accuracy =
+            calculate_relative_accuracy(gamma, CubicallyInterpolatedMapping::CORRECTING_FACTOR);
+        Ok(CubicallyInterpolatedMapping {
+            relative_accuracy,
+            gamma,
+            index_offset,
+            multiplier,
+        })
     }
 }
 

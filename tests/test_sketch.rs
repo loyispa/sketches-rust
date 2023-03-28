@@ -105,7 +105,7 @@ fn test_sketch_add() {
 }
 
 #[test]
-fn test_sketch_merge() {
+fn test_sketch_merge_1() {
     let accuracy = 2e-2;
 
     let mut sketch1 = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
@@ -114,6 +114,24 @@ fn test_sketch_merge() {
     }
 
     let mut sketch2 = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
+    for i in 100..200 {
+        sketch2.accept(i as f64);
+    }
+
+    sketch1.merge_with(&mut sketch2).unwrap();
+    assert_eq!(300.0, sketch1.get_count());
+}
+
+#[test]
+fn test_sketch_merge_2() {
+    let accuracy = 2e-2;
+
+    let mut sketch1 = DDSketch::collapsing_lowest_dense(accuracy, 50).unwrap();
+    for i in -99..101 {
+        sketch1.accept(i as f64);
+    }
+
+    let mut sketch2 = DDSketch::unbounded_dense(accuracy).unwrap();
     for i in 100..200 {
         sketch2.accept(i as f64);
     }
