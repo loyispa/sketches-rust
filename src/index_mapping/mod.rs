@@ -7,7 +7,7 @@ mod logarithmic;
 pub use cubically_interpolated::CubicallyInterpolatedMapping;
 pub use logarithmic::LogarithmicMapping;
 
-pub trait IndexMapping: ToString {
+pub trait IndexMapping: ToString + Sized {
     fn index(&self, value: f64) -> i32;
     fn value(&self, index: i32) -> f64;
     fn lower_bound(&self, index: i32) -> f64;
@@ -15,6 +15,8 @@ pub trait IndexMapping: ToString {
     fn get_relative_accuracy(&self) -> f64;
     fn min_indexable_value(&self) -> f64;
     fn max_indexable_value(&self) -> f64;
+    fn with_relative_accuracy(relative_accuracy: f64) -> Result<Self, Error>;
+    fn with_gamma_offset(gamma: f64, index_offset: f64) -> Result<Self, Error>;
 }
 
 #[derive(Debug)]
@@ -78,7 +80,7 @@ mod tests {
         for gamma in TEST_GAMMAS {
             for index_offset in TEST_INDEX_OFFSETS {
                 let index_mapping =
-                    CubicallyInterpolatedMapping::with_gamma_offset(gamma, index_offset);
+                    CubicallyInterpolatedMapping::with_gamma_offset(gamma, index_offset).unwrap();
                 assert_eq!(accuracy[index], index_mapping.get_relative_accuracy());
                 index += 1;
             }
@@ -90,7 +92,7 @@ mod tests {
         for gamma in TEST_GAMMAS {
             for index_offset in TEST_INDEX_OFFSETS {
                 let index_mapping =
-                    CubicallyInterpolatedMapping::with_gamma_offset(gamma, index_offset);
+                    CubicallyInterpolatedMapping::with_gamma_offset(gamma, index_offset).unwrap();
                 let index_of1 = index_mapping.index(1.0) as f64;
                 // If 1 is on a bucket boundary, its associated index can be either of the ones of the previous
                 // and the next buckets.
@@ -104,7 +106,8 @@ mod tests {
     fn test_logarithmic_mapping_offset() {
         for gamma in TEST_GAMMAS {
             for index_offset in TEST_INDEX_OFFSETS {
-                let index_mapping = LogarithmicMapping::with_gamma_offset(gamma, index_offset);
+                let index_mapping =
+                    LogarithmicMapping::with_gamma_offset(gamma, index_offset).unwrap();
                 let index_of1 = index_mapping.index(1.0) as f64;
                 // If 1 is on a bucket boundary, its associated index can be either of the ones of the previous
                 // and the next buckets.

@@ -201,14 +201,14 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
                                 CubicallyInterpolatedMapping::with_gamma_offset(
                                     gamma,
                                     index_offset,
-                                );
+                                )?;
                             if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
                                 return Err(Error::InvalidArgument("Unmatched IndexMapping"));
                             }
                         }
                         IndexMappingLayout::LOG => {
                             let decoded_index_mapping =
-                                LogarithmicMapping::with_gamma_offset(gamma, index_offset);
+                                LogarithmicMapping::with_gamma_offset(gamma, index_offset)?;
                             if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
                                 return Err(Error::InvalidArgument("Unmatched IndexMapping"));
                             }
@@ -230,7 +230,7 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         Ok(())
     }
 
-    pub fn merge_with(&mut self, other: &mut DDSketch<I, S>) -> Result<(), Error> {
+    pub fn merge_with(&mut self, other: &mut DDSketch<I, impl Store>) -> Result<(), Error> {
         if self.index_mapping.to_string() != other.index_mapping.to_string() {
             return Err(Error::InvalidArgument("Unmatched indexMapping."));
         }
