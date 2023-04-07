@@ -142,6 +142,11 @@ mod tests {
             mapping.lower_bound(-1),
             mapping.upper_bound(-1)
         );
+
+        let d0:f64 = -0.37469387755102035;
+        let d1:f64 = 0.8904489795918369;
+        let p:f64 = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
+        assert_eq!(-0.3816845880251514, p);
     }
 
     #[test]

@@ -30,9 +30,9 @@ impl CubicallyInterpolatedMapping {
     fn log_inverse(&self, index: f64) -> f64 {
         let exponent = index.floor() as i64;
         // Derived from Cardano's formula
-        let d0 = CubicallyInterpolatedMapping::B * CubicallyInterpolatedMapping::B
+        let d0:f64 = CubicallyInterpolatedMapping::B * CubicallyInterpolatedMapping::B
             - 3.0 * CubicallyInterpolatedMapping::A * CubicallyInterpolatedMapping::C;
-        let d1 = 2.0
+        let d1:f64 = 2.0
             * CubicallyInterpolatedMapping::B
             * CubicallyInterpolatedMapping::B
             * CubicallyInterpolatedMapping::B
@@ -44,8 +44,8 @@ impl CubicallyInterpolatedMapping {
                 * CubicallyInterpolatedMapping::A
                 * CubicallyInterpolatedMapping::A
                 * (index - index.floor());
-        let p = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
-        let significand_plus_one = -(CubicallyInterpolatedMapping::B + p + d0 / p)
+        let p:f64 = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
+        let significand_plus_one:f64 = -(CubicallyInterpolatedMapping::B + p + d0 / p)
             / (3.0 * CubicallyInterpolatedMapping::A)
             + 1.0;
         println!("debug build_double: d0={} d1={} p={} exponent={} significand_plus_one={}",d0,d1,p, exponent, significand_plus_one);
