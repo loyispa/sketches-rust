@@ -93,7 +93,7 @@ pub trait Store {
         input: &mut impl Input,
         mode: BinEncodingMode,
     ) -> Result<(), Error> {
-        return match mode {
+        match mode {
             BinEncodingMode::IndexDeltasAndCounts => {
                 let num_bins = serde::decode_unsigned_var_long(input)?;
                 let mut index: i64 = 0;
@@ -136,7 +136,7 @@ pub trait Store {
                 }
                 Ok(())
             }
-        };
+        }
     }
     fn get_descending_stream(&mut self) -> Vec<(i32, f64)>;
     fn get_ascending_stream(&mut self) -> Vec<(i32, f64)>;
@@ -176,12 +176,12 @@ impl<'a> StoreIter<'a> {
 impl<'a> Iterator for StoreIter<'a> {
     type Item = (i32, f64);
     fn next(&mut self) -> Option<Self::Item> {
-        return if self.desc {
+        if self.desc {
             if self.max_index < self.min_index {
                 return None;
             }
 
-            let index = self.max_index as i32;
+            let index = self.max_index;
             self.max_index -= 1;
 
             while self.max_index >= self.min_index {
@@ -199,7 +199,7 @@ impl<'a> Iterator for StoreIter<'a> {
                 return None;
             }
 
-            let index = self.min_index as i32;
+            let index = self.min_index;
             self.min_index += 1;
 
             while self.min_index <= self.max_index {
@@ -212,7 +212,7 @@ impl<'a> Iterator for StoreIter<'a> {
 
             let count = self.counts[(index - self.offset) as usize];
             Some((index, count))
-        };
+        }
     }
 }
 
@@ -235,7 +235,7 @@ impl BinEncodingMode {
 
     pub fn to_flag(self, store_flag_type: FlagType) -> Flag {
         let sub_flag = self as u8;
-        return Flag::with_type(store_flag_type, sub_flag);
+        Flag::with_type(store_flag_type, sub_flag)
     }
 }
 

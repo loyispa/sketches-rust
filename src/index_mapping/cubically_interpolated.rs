@@ -21,10 +21,10 @@ impl CubicallyInterpolatedMapping {
         let long_bits = value.to_bits() as i64;
         let s: f64 = serde::get_significand_plus_one(long_bits) - 1.0;
         let e: f64 = serde::get_exponent(long_bits) as f64;
-        return ((CubicallyInterpolatedMapping::A * s + CubicallyInterpolatedMapping::B) * s
+        ((CubicallyInterpolatedMapping::A * s + CubicallyInterpolatedMapping::B) * s
             + CubicallyInterpolatedMapping::C)
             * s
-            + e;
+            + e
     }
 
     fn log_inverse(&self, index: f64) -> f64 {
@@ -48,7 +48,7 @@ impl CubicallyInterpolatedMapping {
         let significand_plus_one = -(CubicallyInterpolatedMapping::B + p + d0 / p)
             / (3.0 * CubicallyInterpolatedMapping::A)
             + 1.0;
-        return serde::build_double(exponent, significand_plus_one);
+        serde::build_double(exponent, significand_plus_one)
     }
 }
 
@@ -67,15 +67,15 @@ impl IndexMapping for CubicallyInterpolatedMapping {
 
     fn index(&self, value: f64) -> i32 {
         let index: f64 = self.log(value) * self.multiplier + self.index_offset;
-        return if index >= 0.0 {
+        if index >= 0.0 {
             index as i32
         } else {
             (index - 1.0) as i32
-        };
+        }
     }
 
     fn value(&self, index: i32) -> f64 {
-        return self.lower_bound(index) * (1.0 + self.relative_accuracy);
+        self.lower_bound(index) * (1.0 + self.relative_accuracy)
     }
 
     fn lower_bound(&self, index: i32) -> f64 {

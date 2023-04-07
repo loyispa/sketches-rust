@@ -15,7 +15,7 @@ pub struct CollapsingHighestDenseStore {
 
 impl CollapsingHighestDenseStore {
     pub fn with_capacity(capacity: usize) -> Result<Self, Error> {
-        if capacity > 2147483647 || capacity < 1 {
+        if !(1..=2147483647).contains(&capacity) {
             return Err(Error::InvalidArgument(
                 "Too large capacity: should be between 1 and 2147483648.",
             ));
