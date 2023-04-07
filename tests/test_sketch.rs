@@ -1,5 +1,5 @@
-use sketches_rust::DDSketch;
 use sketches_rust::DefaultInput;
+use sketches_rust::{DDSketch, DefaultOutput};
 
 #[test]
 #[should_panic]
@@ -215,4 +215,22 @@ fn test_sketch_decode_panic_2() {
     ]);
     let mut sketch = DDSketch::collapsing_highest_dense(2e-2, 50).unwrap();
     sketch.decode_and_merge_with(&mut input).unwrap();
+}
+
+#[test]
+fn test_sketch_encode() {
+    let mut sketch1 = DDSketch::unbounded_dense(2e-2).unwrap();
+    sketch1.accept(1.0);
+    sketch1.accept(2.0);
+    sketch1.accept(3.0);
+    sketch1.accept(4.0);
+    sketch1.accept(5.0);
+    let mut output = DefaultOutput::with_capacity(64);
+    sketch1.encode(&mut output).unwrap();
+    println!("encode: {:?}", output.trimmed_copy());
+
+    let mut input = DefaultInput::wrap(output.trimmed_copy());
+    let mut sketch2 = DDSketch::unbounded_dense(2e-2).unwrap();
+    sketch2.decode_and_merge_with(&mut input).unwrap();
+    assert_eq!(5.0, sketch2.get_count());
 }

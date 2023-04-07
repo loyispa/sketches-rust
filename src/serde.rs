@@ -1,5 +1,6 @@
 use crate::error::Error;
 use crate::input::*;
+use crate::output::Output;
 use crate::sketch::Flag;
 
 const SIGNIFICAND_WIDTH: i64 = 53;
@@ -8,6 +9,17 @@ const EXPONENT_MASK: i64 = 0x7FF0000000000000;
 const EXPONENT_SHIFT: i64 = SIGNIFICAND_WIDTH - 1;
 const EXPONENT_BIAS: i64 = 1023;
 const ONE: i64 = 0x3ff0000000000000;
+const VAR_DOUBLE_ROTATE_DISTANCE: u32 = 6;
+const UNSIGNED_VAR_LONG_LENGTHS: [i64; 65] = [
+    9, 9, 9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5,
+    5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1,
+    1,
+];
+const VAR_DOUBLE_LENGTHS: [i64; 65] = [
+    9, 9, 9, 9, 9, 9, 9, 9, 8, 8, 8, 8, 8, 8, 8, 7, 7, 7, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5,
+    5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1,
+    1,
+];
 
 pub fn decode_signed_var_long(input: &mut impl Input) -> Result<i64, Error> {
     Ok(zig_zag_decode(decode_unsigned_var_long(input)?))
@@ -98,10 +110,65 @@ pub fn ignore_exact_summary_statistic_flags(
     };
 }
 
+pub fn encode_var_double(output: &mut impl Output, value: f64) -> Result<(), Error> {
+    let mut bits = double_to_var_bits(value);
+    for _ in 0..8 {
+        let next = (bits >> (8 * 8 - 7)) as u8;
+        bits <<= 7;
+        if bits == 0 {
+            output.write_byte(next)?;
+            return Ok(());
+        }
+        output.write_byte((next | 0x80) as u8)?;
+    }
+    output.write_byte((bits >> (8 * 7)) as u8)?;
+    Ok(())
+}
+
+fn double_to_var_bits(value: f64) -> u64 {
+    i64::rotate_left(
+        f64::to_bits(value + 1.0) as i64 - f64::to_bits(1.0) as i64,
+        VAR_DOUBLE_ROTATE_DISTANCE,
+    ) as u64
+}
+
+pub fn unsigned_var_long_encoded_length(value: i64) -> i64 {
+    return UNSIGNED_VAR_LONG_LENGTHS[value.leading_zeros() as usize];
+}
+
+pub fn signed_var_long_encoded_length(value: i64) -> i64 {
+    return UNSIGNED_VAR_LONG_LENGTHS[i64::leading_zeros(zig_zag_encode(value)) as usize];
+}
+
+pub fn var_double_encoded_length(value: f64) -> i64 {
+    return VAR_DOUBLE_LENGTHS[i64::trailing_zeros(double_to_var_bits(value) as i64) as usize];
+}
+
+fn zig_zag_encode(value: i64) -> i64 {
+    return value >> (64 - 1) ^ (value << 1);
+}
+
+pub fn encode_unsigned_var_long(output: &mut impl Output, mut value: i64) -> Result<(), Error> {
+    let length = (63_i64 - value.leading_zeros() as i64) / 7;
+    let mut i = 0;
+    while i < length && i < 8 {
+        output.write_byte((value | 0x80) as u8)?;
+        value = value >> 7;
+        i += 1;
+    }
+    output.write_byte(value as u8)?;
+    Ok(())
+}
+
+pub fn encode_signed_var_long(output: &mut impl Output, value: i64) -> Result<(), Error> {
+    encode_unsigned_var_long(output, zig_zag_encode(value))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::input::DefaultInput;
+    use crate::DefaultOutput;
 
     #[test]
     fn test_decode_var_double() {
@@ -270,5 +337,42 @@ mod tests {
     #[should_panic]
     fn test_i32_to_usize_exact_with_panic() {
         i32_to_usize_exact(-1).unwrap();
+    }
+
+    #[test]
+    fn test_encode_var_double() {
+        let values = [
+            (0.0, vec![0]),
+            (1.0, vec![2]),
+            (2.0, vec![3]),
+            (3.0, vec![4]),
+            (4.0, vec![132, 64]),
+            (5.0, vec![5]),
+            (6.0, vec![133, 64]),
+            (7.0, vec![6]),
+            (8.0, vec![134, 32]),
+            (9.0, vec![134, 64]),
+            (
+                4.503599627370494E15,
+                vec![231, 255, 255, 255, 255, 255, 255, 255, 128],
+            ),
+            (4.503599627370495E15, vec![104]),
+            (
+                4.503599627370496E15,
+                vec![232, 128, 128, 128, 128, 128, 128, 128, 64],
+            ),
+            (
+                9.00719925474099E15,
+                vec![233, 255, 255, 255, 255, 255, 255, 255, 192],
+            ),
+            (9.007199254740991E15, vec![106]),
+            (-1.0, vec![130, 128, 128, 128, 128, 128, 128, 128, 48]),
+            (-0.5, vec![254, 128, 128, 128, 128, 128, 128, 128, 63]),
+        ];
+        for value in values {
+            let mut output = DefaultOutput::with_capacity(32);
+            encode_var_double(&mut output, value.0).unwrap();
+            assert_eq!(value.1, output.trimmed_copy());
+        }
     }
 }

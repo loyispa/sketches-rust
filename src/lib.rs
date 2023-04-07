@@ -45,5 +45,11 @@ mod sketch;
 pub mod store;
 
 pub use self::error::Error;
+pub use self::index_mapping::CubicallyInterpolatedMapping;
+pub use self::index_mapping::LogarithmicMapping;
 pub use self::input::DefaultInput;
+pub use self::output::DefaultOutput;
 pub use self::sketch::DDSketch;
+pub use self::store::CollapsingHighestDenseStore;
+pub use self::store::CollapsingLowestDenseStore;
+pub use self::store::UnboundedSizeDenseStore;

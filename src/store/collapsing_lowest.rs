@@ -263,6 +263,14 @@ impl Store for CollapsingLowestDenseStore {
         self.max_index
     }
 
+    fn get_offset(&self) -> i32 {
+        self.offset
+    }
+
+    fn get_count(&self, i: i32) -> f64 {
+        self.counts[i as usize]
+    }
+
     fn get_descending_stream(&mut self) -> Vec<(i32, f64)> {
         let mut bins = Vec::new();
         let mut index = self.max_index;

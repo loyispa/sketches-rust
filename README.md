@@ -10,10 +10,7 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] UnboundedSizeDenseStore
 - [x] Mergeable
 - [x] Decode from input
-
-Below will be add in the future:
-- [ ] Encode to output
-
+- [x] Encode to output
 
 # Usage
 ```rust

@@ -6,6 +6,8 @@ mod collapsing_highest;
 mod collapsing_lowest;
 mod unbounded;
 
+use crate::output::Output;
+use crate::sketch::{Flag, FlagType};
 pub use collapsing_highest::CollapsingHighestDenseStore;
 pub use collapsing_lowest::CollapsingLowestDenseStore;
 pub use unbounded::UnboundedSizeDenseStore;
@@ -21,8 +23,71 @@ pub trait Store {
     fn clear(&mut self);
     fn is_empty(&self) -> bool;
     fn get_total_count(&mut self) -> f64;
+    fn get_offset(&self) -> i32;
     fn get_min_index(&self) -> i32;
     fn get_max_index(&self) -> i32;
+    fn get_count(&self, i: i32) -> f64;
+    fn encode(&mut self, output: &mut impl Output, store_flag_type: FlagType) -> Result<(), Error> {
+        if self.is_empty() {
+            return Ok(());
+        }
+
+        let min_index = self.get_min_index();
+        let max_index = self.get_max_index();
+        let offset = self.get_offset();
+
+        let mut dense_encoding_size: i64 = 0;
+        let num_bins: i64 = max_index as i64 - min_index as i64 + 1;
+        dense_encoding_size += serde::unsigned_var_long_encoded_length(num_bins);
+        dense_encoding_size += serde::signed_var_long_encoded_length(min_index as i64);
+        dense_encoding_size += serde::signed_var_long_encoded_length(1);
+
+        let mut sparse_encoding_size: i64 = 0;
+        let mut num_non_empty_bins: i64 = 0;
+        let mut previous_index: i64 = 0;
+
+        for i in min_index - offset..max_index - offset + 1 {
+            let count = self.get_count(i);
+            let count_var_double_encoded_length = serde::var_double_encoded_length(count);
+            dense_encoding_size += count_var_double_encoded_length;
+            if count != 0.0 {
+                num_non_empty_bins += 1;
+                let index: i64 = offset as i64 + i as i64;
+                sparse_encoding_size +=
+                    serde::signed_var_long_encoded_length(index - previous_index);
+                sparse_encoding_size += count_var_double_encoded_length;
+                previous_index = index;
+            }
+        }
+
+        if dense_encoding_size <= sparse_encoding_size {
+            BinEncodingMode::ContiguousCounts
+                .to_flag(store_flag_type)
+                .encode(output)?;
+            serde::encode_unsigned_var_long(output, num_bins)?;
+            serde::encode_signed_var_long(output, min_index as i64)?;
+            serde::encode_signed_var_long(output, 1)?;
+            for i in min_index - offset..max_index - offset + 1 {
+                serde::encode_var_double(output, self.get_count(i))?;
+            }
+        } else {
+            BinEncodingMode::IndexDeltasAndCounts
+                .to_flag(store_flag_type)
+                .encode(output)?;
+            serde::encode_unsigned_var_long(output, num_non_empty_bins)?;
+            let mut previous_index = 0;
+            for i in min_index - offset..max_index - offset + 1 {
+                let count = self.get_count(i);
+                if count != 0.0 {
+                    let index: i64 = offset as i64 + i as i64;
+                    serde::encode_signed_var_long(output, index - previous_index)?;
+                    serde::encode_var_double(output, count)?;
+                    previous_index = index;
+                }
+            }
+        }
+        Ok(())
+    }
     fn decode_and_merge_with(
         &mut self,
         input: &mut impl Input,
@@ -151,7 +216,6 @@ impl<'a> Iterator for StoreIter<'a> {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
 pub enum BinEncodingMode {
     IndexDeltasAndCounts = 1,
     IndexDeltas = 2,
@@ -167,6 +231,11 @@ impl BinEncodingMode {
             2 => Ok(BinEncodingMode::ContiguousCounts),
             _ => Err(Error::InvalidArgument("Unknown BinEncodingMode.")),
         }
+    }
+
+    pub fn to_flag(self, store_flag_type: FlagType) -> Flag {
+        let sub_flag = self as u8;
+        return Flag::with_type(store_flag_type, sub_flag);
     }
 }
 

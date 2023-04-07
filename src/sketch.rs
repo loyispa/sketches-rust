@@ -3,6 +3,7 @@ use crate::index_mapping::{
     CubicallyInterpolatedMapping, IndexMapping, IndexMappingLayout, LogarithmicMapping,
 };
 use crate::input::Input;
+use crate::output::Output;
 use crate::serde;
 use crate::store::{
     BinEncodingMode, CollapsingHighestDenseStore, CollapsingLowestDenseStore, Store,
@@ -241,6 +242,22 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         self.zero_count += other.zero_count;
         return Ok(());
     }
+
+    pub fn encode(&mut self, output: &mut impl Output) -> Result<(), Error> {
+        self.index_mapping.encode(output)?;
+
+        if self.zero_count != 0.0 {
+            Flag::ZERO_COUNT.encode(output)?;
+            serde::encode_var_double(output, self.zero_count)?;
+        }
+
+        self.positive_value_store
+            .encode(output, FlagType::PositiveStore)?;
+        self.negative_value_store
+            .encode(output, FlagType::NegativeStore)?;
+
+        Ok(())
+    }
 }
 
 impl DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
@@ -355,6 +372,27 @@ impl DDSketch<LogarithmicMapping, CollapsingHighestDenseStore> {
     }
 }
 
+impl DDSketch<LogarithmicMapping, UnboundedSizeDenseStore> {
+    pub fn logarithmic_unbounded_size_dense_store(
+        relative_accuracy: f64,
+    ) -> Result<DDSketch<LogarithmicMapping, UnboundedSizeDenseStore>, Error> {
+        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy)?;
+        let negative_value_store = UnboundedSizeDenseStore::new();
+        let positive_value_store = UnboundedSizeDenseStore::new();
+        let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
+        let max_indexed_value = index_mapping.max_indexable_value();
+        let zero_count = 0.0;
+        Ok(DDSketch {
+            index_mapping,
+            negative_value_store,
+            positive_value_store,
+            min_indexed_value,
+            max_indexed_value,
+            zero_count,
+        })
+    }
+}
+
 impl Flag {
     pub const ZERO_COUNT: Flag = Flag::with_type(FlagType::SketchFeatures, 1);
     pub const COUNT: Flag = Flag::with_type(FlagType::SketchFeatures, 0x28);
@@ -379,7 +417,11 @@ impl Flag {
         self.marker
     }
 
-    const fn with_type(flag_type: FlagType, sub_flag: u8) -> Flag {
+    pub fn encode(&self, output: &mut impl Output) -> Result<(), Error> {
+        output.write_byte(self.marker)
+    }
+
+    pub const fn with_type(flag_type: FlagType, sub_flag: u8) -> Flag {
         let t = flag_type as u8;
         Flag::new(t | (sub_flag << 2))
     }
