@@ -48,7 +48,6 @@ impl CubicallyInterpolatedMapping {
         let significand_plus_one:f64 = -(CubicallyInterpolatedMapping::B + p + d0 / p)
             / (3.0 * CubicallyInterpolatedMapping::A)
             + 1.0;
-        println!("debug build_double: d0={} d1={} p={} exponent={} significand_plus_one={}",d0,d1,p, exponent, significand_plus_one);
         serde::build_double(exponent, significand_plus_one)
     }
 }
