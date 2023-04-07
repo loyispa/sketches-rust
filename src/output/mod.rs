@@ -1,6 +1,5 @@
 use crate::error::Error;
 
-
 mod default;
 pub use default::DefaultOutput;
 
