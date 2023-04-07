@@ -135,6 +135,8 @@ mod tests {
     fn test_cubically_interpolated_mapping_validity() {
         let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2).unwrap();
 
+        println!("CubicallyInterpolatedMapping: {:?}", mapping);
+
         let min_index = -50;
         let max_index = 50;
 
@@ -147,9 +149,10 @@ mod tests {
             assert!(mapping.upper_bound(index) >= mapping.value(index));
 
             println!(
-                "test_cubically_interpolated_mapping_validity {} {}",
+                "test_cubically_interpolated_mapping_validity {} {} {}",
                 mapping.value(index),
-                mapping.lower_bound(index)
+                mapping.lower_bound(index),
+                mapping.upper_bound(index)
             );
 
             assert!(mapping.index(mapping.lower_bound(index) - EPSILON) < index);
@@ -166,6 +169,8 @@ mod tests {
     #[test]
     fn test_logarithmic_mapping_validity() {
         let mapping = LogarithmicMapping::with_relative_accuracy(1e-2).unwrap();
+
+        println!("LogarithmicMapping: {:?}", mapping);
 
         let min_index = -50;
         let max_index = 50;
