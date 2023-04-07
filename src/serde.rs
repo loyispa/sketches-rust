@@ -339,9 +339,8 @@ mod tests {
         i32_to_usize_exact(-1).unwrap();
     }
 
-    #[test]
-    fn test_encode_var_double() {
-        let values = [
+    fn var_doubles() -> [(f64, Vec<u8>); 17] {
+        [
             (0.0, vec![0]),
             (1.0, vec![2]),
             (2.0, vec![3]),
@@ -368,10 +367,133 @@ mod tests {
             (9.007199254740991E15, vec![106]),
             (-1.0, vec![130, 128, 128, 128, 128, 128, 128, 128, 48]),
             (-0.5, vec![254, 128, 128, 128, 128, 128, 128, 128, 63]),
-        ];
+        ]
+    }
+
+    fn unsigned_var_longs() -> [(i64, Vec<u8>); 12] {
+        [
+            (0, vec![0]),
+            (1, vec![1]),
+            (127, vec![127]),
+            (128, vec![128, 1]),
+            (129, vec![129, 1]),
+            (255, vec![255, 1]),
+            (256, vec![128, 2]),
+            (16383, vec![255, 127]),
+            (16384, vec![128, 128, 1]),
+            (16385, vec![129, 128, 1]),
+            (-2, vec![254, 255, 255, 255, 255, 255, 255, 255, 255]),
+            (-1, vec![255, 255, 255, 255, 255, 255, 255, 255, 255]),
+        ]
+    }
+
+    fn signed_var_longs() -> [(i64, Vec<u8>); 29] {
+        [
+            (0, vec![0]),
+            (1, vec![2]),
+            (63, vec![126]),
+            (64, vec![128, 1]),
+            (65, vec![130, 1]),
+            (127, vec![254, 1]),
+            (128, vec![128, 2]),
+            (8191, vec![254, 127]),
+            (8192, vec![128, 128, 1]),
+            (8193, vec![130, 128, 1]),
+            (
+                4611686018427387902,
+                vec![252, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                4611686018427387903,
+                vec![254, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                4611686018427387904,
+                vec![128, 128, 128, 128, 128, 128, 128, 128, 128],
+            ),
+            (
+                9223372036854775806,
+                vec![252, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
+            (
+                9223372036854775807,
+                vec![254, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
+            (-1, vec![1]),
+            (-63, vec![125]),
+            (-64, vec![127]),
+            (-65, vec![129, 1]),
+            (-127, vec![253, 1]),
+            (-128, vec![255, 1]),
+            (-8191, vec![253, 127]),
+            (-8192, vec![255, 127]),
+            (-8193, vec![129, 128, 1]),
+            (
+                -4611686018427387903,
+                vec![253, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                -4611686018427387904,
+                vec![255, 255, 255, 255, 255, 255, 255, 255, 127],
+            ),
+            (
+                -4611686018427387905,
+                vec![129, 128, 128, 128, 128, 128, 128, 128, 128],
+            ),
+            (
+                -9223372036854775807,
+                vec![253, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
+            (
+                -9223372036854775808,
+                vec![255, 255, 255, 255, 255, 255, 255, 255, 255],
+            ),
+        ]
+    }
+
+    #[test]
+    fn test_encode_var_double() {
+        let values = var_doubles();
         for value in values {
             let mut output = DefaultOutput::with_capacity(32);
             encode_var_double(&mut output, value.0).unwrap();
+            assert_eq!(value.1, output.trimmed_copy());
+        }
+    }
+
+    #[test]
+    fn test_var_double_encoded_length() {
+        let values = var_doubles();
+        for value in values {
+            let len = var_double_encoded_length(value.0);
+            assert_eq!(value.1.len(), len as usize);
+        }
+    }
+
+    #[test]
+    fn test_unsigned_var_long_encoded_length() {
+        let values = unsigned_var_longs();
+        for value in values {
+            let len = unsigned_var_long_encoded_length(value.0);
+            assert_eq!(value.1.len(), len as usize);
+        }
+    }
+
+    #[test]
+    fn test_signed_var_long_encoded_length() {
+        let values = signed_var_longs();
+        for value in values {
+            let len = signed_var_long_encoded_length(value.0);
+            assert_eq!(value.1.len(), len as usize);
+        }
+    }
+
+    #[test]
+    fn test_encode_signed_var_long() {
+        let values = signed_var_longs();
+        for value in values {
+            let mut output = DefaultOutput::with_capacity(32);
+            encode_signed_var_long(&mut output, value.0).unwrap();
             assert_eq!(value.1, output.trimmed_copy());
         }
     }

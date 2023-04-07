@@ -4,11 +4,11 @@ use crate::index_mapping::{
 };
 use crate::input::Input;
 use crate::output::Output;
-use crate::serde;
 use crate::store::{
     BinEncodingMode, CollapsingHighestDenseStore, CollapsingLowestDenseStore, Store,
     UnboundedSizeDenseStore,
 };
+use crate::{serde, DefaultInput, DefaultOutput};
 
 pub struct DDSketch<I: IndexMapping, S: Store> {
     index_mapping: I,
@@ -177,20 +177,21 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         None
     }
 
-    pub fn decode_and_merge_with(&mut self, input: &mut impl Input) -> Result<(), Error> {
+    pub fn decode_and_merge_with(&mut self, bytes: Vec<u8>) -> Result<(), Error> {
+        let mut input = DefaultInput::wrap(bytes);
         while input.has_remaining() {
-            let flag = Flag::decode(input)?;
+            let flag = Flag::decode(&mut input)?;
             let flag_type = flag.get_type()?;
             match flag_type {
                 FlagType::PositiveStore => {
                     let mode = BinEncodingMode::of_flag(flag.get_marker())?;
                     self.positive_value_store
-                        .decode_and_merge_with(input, mode)?;
+                        .decode_and_merge_with(&mut input, mode)?;
                 }
                 FlagType::NegativeStore => {
                     let mode = BinEncodingMode::of_flag(flag.get_marker())?;
                     self.negative_value_store
-                        .decode_and_merge_with(input, mode)?;
+                        .decode_and_merge_with(&mut input, mode)?;
                 }
                 FlagType::IndexMapping => {
                     let layout = IndexMappingLayout::of_flag(&flag)?;
@@ -221,9 +222,9 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
                 }
                 FlagType::SketchFeatures => {
                     if Flag::ZERO_COUNT == flag {
-                        self.zero_count += serde::decode_var_double(input)?;
+                        self.zero_count += serde::decode_var_double(&mut input)?;
                     } else {
-                        serde::ignore_exact_summary_statistic_flags(input, flag)?;
+                        serde::ignore_exact_summary_statistic_flags(&mut input, flag)?;
                     }
                 }
             }
@@ -243,20 +244,21 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         return Ok(());
     }
 
-    pub fn encode(&mut self, output: &mut impl Output) -> Result<(), Error> {
-        self.index_mapping.encode(output)?;
+    pub fn encode(&mut self) -> Result<Vec<u8>, Error> {
+        let mut output = DefaultOutput::with_capacity(64);
+        self.index_mapping.encode(&mut output)?;
 
         if self.zero_count != 0.0 {
-            Flag::ZERO_COUNT.encode(output)?;
-            serde::encode_var_double(output, self.zero_count)?;
+            Flag::ZERO_COUNT.encode(&mut output)?;
+            serde::encode_var_double(&mut output, self.zero_count)?;
         }
 
         self.positive_value_store
-            .encode(output, FlagType::PositiveStore)?;
+            .encode(&mut output, FlagType::PositiveStore)?;
         self.negative_value_store
-            .encode(output, FlagType::NegativeStore)?;
+            .encode(&mut output, FlagType::NegativeStore)?;
 
-        Ok(())
+        Ok(output.trimmed_copy())
     }
 }
 
