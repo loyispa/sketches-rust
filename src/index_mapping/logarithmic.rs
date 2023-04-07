@@ -37,15 +37,15 @@ impl IndexMapping for LogarithmicMapping {
 
     fn index(&self, value: f64) -> i32 {
         let index: f64 = self.log(value) * self.multiplier + self.index_offset;
-        return if index >= 0.0 {
+        if index >= 0.0 {
             index as i32
         } else {
             (index - 1.0) as i32
-        };
+        }
     }
 
     fn value(&self, index: i32) -> f64 {
-        return self.lower_bound(index) * (1.0 + self.relative_accuracy);
+        self.lower_bound(index) * (1.0 + self.relative_accuracy)
     }
 
     fn lower_bound(&self, index: i32) -> f64 {

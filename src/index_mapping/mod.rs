@@ -40,14 +40,14 @@ pub enum IndexMappingLayout {
 impl IndexMappingLayout {
     pub fn of_flag(flag: &Flag) -> Result<IndexMappingLayout, Error> {
         let index = flag.get_marker() >> 2;
-        return match index {
+        match index {
             0 => Ok(IndexMappingLayout::LOG),
             1 => Ok(IndexMappingLayout::LogLinear),
             2 => Ok(IndexMappingLayout::LogQuadratic),
             3 => Ok(IndexMappingLayout::LogCubic),
             4 => Ok(IndexMappingLayout::LogQuartic),
             _ => Err(Error::InvalidArgument("Unknown Index Flag.")),
-        };
+        }
     }
 
     pub fn to_flag(self) -> Flag {
@@ -58,7 +58,7 @@ impl IndexMappingLayout {
 
 fn calculate_relative_accuracy(gamma: f64, correcting_factor: f64) -> f64 {
     let exact_log_gamma = gamma.powf(correcting_factor);
-    return (exact_log_gamma - 1.0) / (exact_log_gamma + 1.0);
+    (exact_log_gamma - 1.0) / (exact_log_gamma + 1.0)
 }
 
 fn calculate_gamma(relative_accuracy: f64, correcting_factor: f64) -> f64 {

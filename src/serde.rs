@@ -54,7 +54,7 @@ pub fn decode_var_double(input: &mut impl Input) -> Result<f64, Error> {
         bits |= ((next as i64) & 127) << shift;
         shift -= 7;
     }
-    return Ok(var_bits_to_double(bits));
+    Ok(var_bits_to_double(bits))
 }
 
 pub fn i64_to_i32_exact(value: i64) -> Result<i32, Error> {
@@ -88,7 +88,7 @@ pub fn build_double(exponent: i64, significand_plus_one: f64) -> f64 {
 }
 
 fn zig_zag_decode(value: i64) -> i64 {
-    return ((value as u64) >> 1) as i64 ^ (-(value & 1));
+    ((value as u64) >> 1) as i64 ^ (-(value & 1))
 }
 
 fn var_bits_to_double(bits: i64) -> f64 {
@@ -99,7 +99,7 @@ pub fn ignore_exact_summary_statistic_flags(
     input: &mut impl Input,
     flag: Flag,
 ) -> Result<(), Error> {
-    return if flag == Flag::COUNT {
+    if flag == Flag::COUNT {
         decode_var_double(input)?;
         Ok(())
     } else if flag == Flag::SUM || flag == Flag::MIN || flag == Flag::MAX {
@@ -107,7 +107,7 @@ pub fn ignore_exact_summary_statistic_flags(
         Ok(())
     } else {
         Err(Error::InvalidArgument("Unknown Flag."))
-    };
+    }
 }
 
 pub fn encode_var_double(output: &mut impl Output, value: f64) -> Result<(), Error> {
@@ -119,7 +119,7 @@ pub fn encode_var_double(output: &mut impl Output, value: f64) -> Result<(), Err
             output.write_byte(next)?;
             return Ok(());
         }
-        output.write_byte((next | 0x80) as u8)?;
+        output.write_byte(next | 0x80)?;
     }
     output.write_byte((bits >> (8 * 7)) as u8)?;
     Ok(())
@@ -133,19 +133,19 @@ fn double_to_var_bits(value: f64) -> u64 {
 }
 
 pub fn unsigned_var_long_encoded_length(value: i64) -> i64 {
-    return UNSIGNED_VAR_LONG_LENGTHS[value.leading_zeros() as usize];
+    UNSIGNED_VAR_LONG_LENGTHS[value.leading_zeros() as usize]
 }
 
 pub fn signed_var_long_encoded_length(value: i64) -> i64 {
-    return UNSIGNED_VAR_LONG_LENGTHS[i64::leading_zeros(zig_zag_encode(value)) as usize];
+    UNSIGNED_VAR_LONG_LENGTHS[i64::leading_zeros(zig_zag_encode(value)) as usize]
 }
 
 pub fn var_double_encoded_length(value: f64) -> i64 {
-    return VAR_DOUBLE_LENGTHS[i64::trailing_zeros(double_to_var_bits(value) as i64) as usize];
+    VAR_DOUBLE_LENGTHS[i64::trailing_zeros(double_to_var_bits(value) as i64) as usize]
 }
 
 fn zig_zag_encode(value: i64) -> i64 {
-    return value >> (64 - 1) ^ (value << 1);
+    value >> (64 - 1) ^ (value << 1)
 }
 
 pub fn encode_unsigned_var_long(output: &mut impl Output, mut value: i64) -> Result<(), Error> {
@@ -153,7 +153,7 @@ pub fn encode_unsigned_var_long(output: &mut impl Output, mut value: i64) -> Res
     let mut i = 0;
     while i < length && i < 8 {
         output.write_byte((value | 0x80) as u8)?;
-        value = value >> 7;
+        value >>= 7;
         i += 1;
     }
     output.write_byte(value as u8)?;

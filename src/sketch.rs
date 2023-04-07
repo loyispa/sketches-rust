@@ -94,7 +94,7 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
     }
 
     pub fn get_max(&mut self) -> Option<f64> {
-        return if !self.positive_value_store.is_empty() {
+        if !self.positive_value_store.is_empty() {
             Some(
                 self.index_mapping
                     .value(self.positive_value_store.get_max_index()),
@@ -109,11 +109,11 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
             )
         } else {
             None
-        };
+        }
     }
 
     pub fn get_min(&mut self) -> Option<f64> {
-        return if !self.negative_value_store.is_empty() {
+        if !self.negative_value_store.is_empty() {
             Some(
                 -self
                     .index_mapping
@@ -128,7 +128,7 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
             )
         } else {
             None
-        };
+        }
     }
 
     pub fn get_average(&mut self) -> Option<f64> {
@@ -136,11 +136,11 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         if count <= 0.0 {
             return None;
         }
-        return Some(self.get_sum()? / count);
+        Some(self.get_sum()? / count)
     }
 
     pub fn get_value_at_quantile(self: &mut DDSketch<I, S>, quantile: f64) -> Option<f64> {
-        if quantile < 0.0 || quantile > 1.0 {
+        if !(0.0..=1.0).contains(&quantile) {
             return None;
         }
 
@@ -241,10 +241,10 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         self.positive_value_store
             .merge_with(&mut other.positive_value_store);
         self.zero_count += other.zero_count;
-        return Ok(());
+        Ok(())
     }
 
-    pub fn encode(&mut self) -> Result<Vec<u8>, Error> {
+    pub fn encode(&self) -> Result<Vec<u8>, Error> {
         let mut output = DefaultOutput::with_capacity(64);
         self.index_mapping.encode(&mut output)?;
 
