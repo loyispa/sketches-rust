@@ -133,19 +133,15 @@ mod tests {
 
     #[test]
     fn test_cubically_interpolated_mapping_validity_manual_check() {
-        let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2).unwrap();
-        println!("CubicallyInterpolatedMapping: {:?}", mapping);
-        println!(
-            "test_cubically_interpolated_mapping_validity {} {} {} {}",
-            -1,
-            mapping.value(-1),
-            mapping.lower_bound(-1),
-            mapping.upper_bound(-1)
-        );
-
         let d0:f64 = -0.37469387755102035;
         let d1:f64 = 0.8904489795918369;
-        let p:f64 = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
+        let p:f64 = ((d1 - (d1 * d1 - 4.0_f64 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
+        let s1 = d1 * d1 - 4.0_f64 * d0 * d0 * d0;
+        let s2 = s1.sqrt();
+        let s3 = d1 - s2;
+        let s4 = s3/2.0;
+        let s5 = s4.cbrt();
+        eprintln!("{} {} {} {} {} ", s1, s2, s3, s4, s5);
         assert_eq!(-0.3816845880251514, p);
     }
 
