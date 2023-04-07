@@ -1,7 +1,7 @@
 use super::*;
 use crate::index_mapping::IndexMapping;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct LogarithmicMapping {
     gamma: f64,
     index_offset: f64,
@@ -89,7 +89,7 @@ impl IndexMapping for LogarithmicMapping {
 
         let gamma = calculate_gamma(relative_accuracy, LogarithmicMapping::CORRECTING_FACTOR);
         let index_offset: f64 = 0.0;
-        let multiplier = LogarithmicMapping::BASE.ln() / gamma.ln();
+        let multiplier = LogarithmicMapping::BASE.ln() / (gamma - 1.0).ln_1p();
         let relative_accuracy = calculate_relative_accuracy(gamma, 1.0);
         Ok(LogarithmicMapping {
             relative_accuracy,

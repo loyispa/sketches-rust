@@ -2,7 +2,7 @@ use super::*;
 use crate::index_mapping::IndexMapping;
 use crate::serde;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct CubicallyInterpolatedMapping {
     gamma: f64,
     index_offset: f64,
@@ -123,7 +123,8 @@ impl IndexMapping for CubicallyInterpolatedMapping {
             CubicallyInterpolatedMapping::CORRECTING_FACTOR,
         );
         let index_offset: f64 = 0.0;
-        let multiplier = CubicallyInterpolatedMapping::BASE.ln() / gamma.ln();
+
+        let multiplier = CubicallyInterpolatedMapping::BASE.ln() / (gamma - 1.0).ln_1p();
         let relative_accuracy =
             calculate_relative_accuracy(gamma, CubicallyInterpolatedMapping::CORRECTING_FACTOR);
         Ok(CubicallyInterpolatedMapping {
