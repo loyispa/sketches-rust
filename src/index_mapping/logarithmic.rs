@@ -23,6 +23,18 @@ impl LogarithmicMapping {
 }
 
 impl IndexMapping for LogarithmicMapping {
+    fn gamma(&self) -> f64 {
+        self.gamma
+    }
+
+    fn index_offset(&self) -> f64 {
+        self.index_offset
+    }
+
+    fn layout(&self) -> IndexMappingLayout {
+        IndexMappingLayout::LOG
+    }
+
     fn index(&self, value: f64) -> i32 {
         let index: f64 = self.log(value) * self.multiplier + self.index_offset;
         return if index >= 0.0 {

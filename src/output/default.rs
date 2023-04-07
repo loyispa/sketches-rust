@@ -10,6 +10,10 @@ impl DefaultOutput {
             vec: Vec::with_capacity(capacity),
         }
     }
+
+    pub fn trimmed_copy(&self) -> Vec<u8> {
+        self.vec.clone()
+    }
 }
 
 impl Output for DefaultOutput {

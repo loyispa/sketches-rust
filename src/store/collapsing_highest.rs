@@ -256,12 +256,20 @@ impl Store for CollapsingHighestDenseStore {
         self.get_total_count_with_range(self.min_index, self.max_index)
     }
 
+    fn get_offset(&self) -> i32 {
+        self.offset
+    }
+
     fn get_min_index(&self) -> i32 {
         self.min_index
     }
 
     fn get_max_index(&self) -> i32 {
         self.max_index
+    }
+
+    fn get_count(&self, i: i32) -> f64 {
+        self.counts[i as usize]
     }
 
     fn get_descending_stream(&mut self) -> Vec<(i32, f64)> {

@@ -1,13 +1,17 @@
-use crate::sketch::Flag;
+use crate::sketch::{Flag, FlagType};
 use crate::Error;
 
 mod cubically_interpolated;
 mod logarithmic;
 
+use crate::output::Output;
 pub use cubically_interpolated::CubicallyInterpolatedMapping;
 pub use logarithmic::LogarithmicMapping;
 
 pub trait IndexMapping: ToString + Sized {
+    fn gamma(&self) -> f64;
+    fn index_offset(&self) -> f64;
+    fn layout(&self) -> IndexMappingLayout;
     fn index(&self, value: f64) -> i32;
     fn value(&self, index: i32) -> f64;
     fn lower_bound(&self, index: i32) -> f64;
@@ -17,15 +21,20 @@ pub trait IndexMapping: ToString + Sized {
     fn max_indexable_value(&self) -> f64;
     fn with_relative_accuracy(relative_accuracy: f64) -> Result<Self, Error>;
     fn with_gamma_offset(gamma: f64, index_offset: f64) -> Result<Self, Error>;
+    fn encode(&self, output: &mut impl Output) -> Result<(), Error> {
+        self.layout().to_flag().encode(output)?;
+        output.write_double_le(self.gamma())?;
+        output.write_double_le(self.index_offset())?;
+        Ok(())
+    }
 }
 
-#[derive(Debug)]
 pub enum IndexMappingLayout {
-    LOG,
-    LogLinear,
-    LogQuadratic,
-    LogCubic,
-    LogQuartic,
+    LOG = 0,
+    LogLinear = 1,
+    LogQuadratic = 2,
+    LogCubic = 3,
+    LogQuartic = 4,
 }
 
 impl IndexMappingLayout {
@@ -39,6 +48,11 @@ impl IndexMappingLayout {
             4 => Ok(IndexMappingLayout::LogQuartic),
             _ => Err(Error::InvalidArgument("Unknown Index Flag.")),
         };
+    }
+
+    pub fn to_flag(self) -> Flag {
+        let sub_flag = self as u8;
+        Flag::with_type(FlagType::IndexMapping, sub_flag)
     }
 }
 
