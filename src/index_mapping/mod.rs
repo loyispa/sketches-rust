@@ -132,6 +132,19 @@ mod tests {
     }
 
     #[test]
+    fn test_cubically_interpolated_mapping_validity_manual_check() {
+        let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2).unwrap();
+        println!("CubicallyInterpolatedMapping: {:?}", mapping);
+        println!(
+            "test_cubically_interpolated_mapping_validity {} {} {} {}",
+            -1,
+            mapping.value(-1),
+            mapping.lower_bound(-1),
+            mapping.upper_bound(-1)
+        );
+    }
+
+    #[test]
     fn test_cubically_interpolated_mapping_validity() {
         let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2).unwrap();
 
@@ -144,10 +157,6 @@ mod tests {
         let mut bound = mapping.upper_bound(index - 1);
 
         while index <= max_index {
-            assert!(f64::abs(mapping.lower_bound(index) - bound) <= 1e10);
-            assert!(mapping.value(index) >= mapping.lower_bound(index));
-            assert!(mapping.upper_bound(index) >= mapping.value(index));
-
             println!(
                 "test_cubically_interpolated_mapping_validity {} {} {} {}",
                 index,
@@ -155,6 +164,10 @@ mod tests {
                 mapping.lower_bound(index),
                 mapping.upper_bound(index)
             );
+
+            assert!(f64::abs(mapping.lower_bound(index) - bound) <= 1e10);
+            assert!(mapping.value(index) >= mapping.lower_bound(index));
+            assert!(mapping.upper_bound(index) >= mapping.value(index));
 
             assert!(mapping.index(mapping.lower_bound(index) - EPSILON) < index);
             assert!(mapping.index(mapping.lower_bound(index) + EPSILON) >= index);
@@ -180,13 +193,17 @@ mod tests {
         let mut bound = mapping.upper_bound(index - 1);
 
         while index <= max_index {
+            println!(
+                "test_logarithmic_mapping_validity {} {} {} {}",
+                index,
+                mapping.value(index),
+                mapping.lower_bound(index),
+                mapping.upper_bound(index)
+            );
+
             assert!(f64::abs(mapping.lower_bound(index) - bound) <= 1e10);
             assert!(mapping.value(index) >= mapping.lower_bound(index));
-            println!(
-                "test_logarithmic_mapping_validity {} {}",
-                mapping.value(index),
-                mapping.lower_bound(index)
-            );
+
             assert!(mapping.upper_bound(index) >= mapping.value(index));
 
             assert!(mapping.index(mapping.lower_bound(index) - EPSILON) < index);
