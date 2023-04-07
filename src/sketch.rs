@@ -244,7 +244,7 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         return Ok(());
     }
 
-    pub fn encode(&mut self) -> Result<Vec<u8>, Error> {
+    pub fn encode(&self) -> Result<Vec<u8>, Error> {
         let mut output = DefaultOutput::with_capacity(64);
         self.index_mapping.encode(&mut output)?;
 

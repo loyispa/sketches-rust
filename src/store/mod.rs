@@ -27,7 +27,7 @@ pub trait Store {
     fn get_min_index(&self) -> i32;
     fn get_max_index(&self) -> i32;
     fn get_count(&self, i: i32) -> f64;
-    fn encode(&mut self, output: &mut impl Output, store_flag_type: FlagType) -> Result<(), Error> {
+    fn encode(&self, output: &mut impl Output, store_flag_type: FlagType) -> Result<(), Error> {
         if self.is_empty() {
             return Ok(());
         }

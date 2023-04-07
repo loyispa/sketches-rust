@@ -70,10 +70,12 @@ mod store;
 
 pub use self::error::Error;
 pub use self::index_mapping::CubicallyInterpolatedMapping;
+pub use self::index_mapping::IndexMapping;
 pub use self::index_mapping::LogarithmicMapping;
 use self::input::DefaultInput;
 use self::output::DefaultOutput;
 pub use self::sketch::DDSketch;
 pub use self::store::CollapsingHighestDenseStore;
 pub use self::store::CollapsingLowestDenseStore;
+pub use self::store::Store;
 pub use self::store::UnboundedSizeDenseStore;
