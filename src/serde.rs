@@ -497,4 +497,9 @@ mod tests {
             assert_eq!(value.1, output.trimmed_copy());
         }
     }
+
+    #[test]
+    fn test_build_double() {
+        assert_eq!(build_double(0,1.0), 1.0);
+    }
 }

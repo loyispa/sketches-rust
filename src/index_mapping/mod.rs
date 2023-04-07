@@ -149,7 +149,8 @@ mod tests {
             assert!(mapping.upper_bound(index) >= mapping.value(index));
 
             println!(
-                "test_cubically_interpolated_mapping_validity {} {} {}",
+                "test_cubically_interpolated_mapping_validity {} {} {} {}",
+                index,
                 mapping.value(index),
                 mapping.lower_bound(index),
                 mapping.upper_bound(index)

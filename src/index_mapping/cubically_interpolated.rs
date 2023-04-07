@@ -43,7 +43,7 @@ impl CubicallyInterpolatedMapping {
             - 27.0
                 * CubicallyInterpolatedMapping::A
                 * CubicallyInterpolatedMapping::A
-                * (index - exponent as f64);
+                * (index - index.floor());
         let p = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
         let significand_plus_one = -(CubicallyInterpolatedMapping::B + p + d0 / p)
             / (3.0 * CubicallyInterpolatedMapping::A)
