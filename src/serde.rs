@@ -82,6 +82,7 @@ pub fn get_significand_plus_one(long_bits: i64) -> f64 {
 }
 
 pub fn build_double(exponent: i64, significand_plus_one: f64) -> f64 {
+    let significand_plus_one = 1.0_f64.max(significand_plus_one);
     let raw = (((exponent + EXPONENT_BIAS) << EXPONENT_SHIFT) & EXPONENT_MASK)
         | (f64::to_bits(significand_plus_one) as i64 & SIGNIFICAND_MASK);
     f64::from_bits(raw as u64)
@@ -500,6 +501,6 @@ mod tests {
 
     #[test]
     fn test_build_double() {
-        assert_eq!(build_double(0,1.0), 1.0);
+        assert_eq!(build_double(0, 1.0), 1.0);
     }
 }
