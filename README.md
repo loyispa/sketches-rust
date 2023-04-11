@@ -9,8 +9,8 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] CollapsingLowestDense 
 - [x] UnboundedSizeDenseStore
 - [x] Mergeable
-- [x] Decode from input
-- [x] Encode to output
+- [x] Decode from bytes
+- [x] Encode to bytes
 
 # Usage
 ```rust
