@@ -11,6 +11,9 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] Mergeable
 - [x] Decode from bytes
 - [x] Encode to bytes
+# Roadmap 0.2.x
+- [ ] Refactoring to improve api usability
+
 
 # Usage
 ```rust
