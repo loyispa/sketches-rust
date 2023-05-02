@@ -1,21 +1,20 @@
 use crate::error::Error;
-use crate::index_mapping::{
-    CubicallyInterpolatedMapping, IndexMapping, IndexMappingLayout, LogarithmicMapping,
-};
+use crate::index_mapping::IndexMappingLayout::{LogCubic, LOG};
+use crate::index_mapping::{IndexMapping, IndexMappingLayout};
 use crate::input::Input;
 use crate::output::Output;
+use crate::serde;
 use crate::store::{
     BinEncodingMode, CollapsingHighestDenseStore, CollapsingLowestDenseStore, Store,
     UnboundedSizeDenseStore,
 };
-use crate::{serde, DefaultInput, DefaultOutput};
 
-pub struct DDSketch<I: IndexMapping, S: Store> {
-    index_mapping: I,
+pub struct DDSketch {
+    index_mapping: IndexMapping,
     min_indexed_value: f64,
     max_indexed_value: f64,
-    negative_value_store: S,
-    positive_value_store: S,
+    negative_value_store: Box<dyn Store>,
+    positive_value_store: Box<dyn Store>,
     zero_count: f64,
 }
 
@@ -31,7 +30,7 @@ pub enum FlagType {
     NegativeStore = 0b11,
 }
 
-impl<I: IndexMapping, S: Store> DDSketch<I, S> {
+impl DDSketch {
     pub fn accept(&mut self, value: f64) {
         self.accept_with_count(value, 1.0);
     }
@@ -81,14 +80,8 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         }
 
         let mut sum = 0.0;
-
-        self.negative_value_store.foreach(|index: i32, count: f64| {
-            sum -= self.index_mapping.value(index) * count;
-        });
-
-        self.positive_value_store.foreach(|index: i32, count: f64| {
-            sum += self.index_mapping.value(index) * count;
-        });
+        sum -= self.negative_value_store.sum(&self.index_mapping);
+        sum += self.positive_value_store.sum(&self.index_mapping);
 
         Some(sum)
     }
@@ -139,7 +132,7 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         Some(self.get_sum()? / count)
     }
 
-    pub fn get_value_at_quantile(self: &mut DDSketch<I, S>, quantile: f64) -> Option<f64> {
+    pub fn get_value_at_quantile(self: &mut DDSketch, quantile: f64) -> Option<f64> {
         if !(0.0..=1.0).contains(&quantile) {
             return None;
         }
@@ -177,8 +170,8 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         None
     }
 
-    pub fn decode_and_merge_with(&mut self, bytes: Vec<u8>) -> Result<(), Error> {
-        let mut input = DefaultInput::wrap(bytes);
+    pub fn decode_and_merge_with(&mut self, bytes: &Vec<u8>) -> Result<(), Error> {
+        let mut input = Input::wrap(bytes);
         while input.has_remaining() {
             let flag = Flag::decode(&mut input)?;
             let flag_type = flag.get_type()?;
@@ -197,27 +190,10 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
                     let layout = IndexMappingLayout::of_flag(&flag)?;
                     let gamma = input.read_double_le()?;
                     let index_offset = input.read_double_le()?;
-                    match layout {
-                        IndexMappingLayout::LogCubic => {
-                            let decoded_index_mapping =
-                                CubicallyInterpolatedMapping::with_gamma_offset(
-                                    gamma,
-                                    index_offset,
-                                )?;
-                            if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
-                                return Err(Error::InvalidArgument("Unmatched IndexMapping"));
-                            }
-                        }
-                        IndexMappingLayout::LOG => {
-                            let decoded_index_mapping =
-                                LogarithmicMapping::with_gamma_offset(gamma, index_offset)?;
-                            if self.index_mapping.to_string() != decoded_index_mapping.to_string() {
-                                return Err(Error::InvalidArgument("Unmatched IndexMapping"));
-                            }
-                        }
-                        _ => {
-                            return Err(Error::InvalidArgument("Unsupported IndexMapping"));
-                        }
+                    let decoded_index_mapping =
+                        IndexMapping::with_gamma_offset(layout, gamma, index_offset)?;
+                    if self.index_mapping != decoded_index_mapping {
+                        return Err(Error::InvalidArgument("Unmatched IndexMapping"));
                     }
                 }
                 FlagType::SketchFeatures => {
@@ -232,20 +208,20 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         Ok(())
     }
 
-    pub fn merge_with(&mut self, other: &mut DDSketch<I, impl Store>) -> Result<(), Error> {
-        if self.index_mapping.to_string() != other.index_mapping.to_string() {
+    pub fn merge_with(&mut self, other: &DDSketch) -> Result<(), Error> {
+        if self.index_mapping != other.index_mapping {
             return Err(Error::InvalidArgument("Unmatched indexMapping."));
         }
         self.negative_value_store
-            .merge_with(&mut other.negative_value_store);
+            .merge_with(other.negative_value_store.get_descending_stream());
         self.positive_value_store
-            .merge_with(&mut other.positive_value_store);
+            .merge_with(other.positive_value_store.get_descending_stream());
         self.zero_count += other.zero_count;
         Ok(())
     }
 
     pub fn encode(&self) -> Result<Vec<u8>, Error> {
-        let mut output = DefaultOutput::with_capacity(64);
+        let mut output = Output::with_capacity(64);
         self.index_mapping.encode(&mut output)?;
 
         if self.zero_count != 0.0 {
@@ -258,40 +234,37 @@ impl<I: IndexMapping, S: Store> DDSketch<I, S> {
         self.negative_value_store
             .encode(&mut output, FlagType::NegativeStore)?;
 
-        Ok(output.trimmed_copy())
+        Ok(output.trim())
     }
 }
 
-impl DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore> {
+impl DDSketch {
     pub fn collapsing_lowest_dense(
         relative_accuracy: f64,
         max_num_bins: usize,
-    ) -> Result<DDSketch<CubicallyInterpolatedMapping, CollapsingLowestDenseStore>, Error> {
-        let index_mapping =
-            CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy)?;
+    ) -> Result<DDSketch, Error> {
+        let index_mapping = IndexMapping::with_relative_accuracy(LogCubic, relative_accuracy)?;
         let negative_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
         let positive_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
         let max_indexed_value = index_mapping.max_indexable_value();
         let zero_count = 0.0;
+
         Ok(DDSketch {
             index_mapping,
-            negative_value_store,
-            positive_value_store,
+            negative_value_store: Box::new(negative_value_store),
+            positive_value_store: Box::new(positive_value_store),
             min_indexed_value,
             max_indexed_value,
             zero_count,
         })
     }
-}
 
-impl DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore> {
     pub fn collapsing_highest_dense(
         relative_accuracy: f64,
         max_num_bins: usize,
-    ) -> Result<DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore>, Error> {
-        let index_mapping =
-            CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy)?;
+    ) -> Result<DDSketch, Error> {
+        let index_mapping = IndexMapping::with_relative_accuracy(LogCubic, relative_accuracy)?;
         let negative_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
         let positive_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
@@ -299,21 +272,16 @@ impl DDSketch<CubicallyInterpolatedMapping, CollapsingHighestDenseStore> {
         let zero_count = 0.0;
         Ok(DDSketch {
             index_mapping,
-            negative_value_store,
-            positive_value_store,
+            negative_value_store: Box::new(negative_value_store),
+            positive_value_store: Box::new(positive_value_store),
             min_indexed_value,
             max_indexed_value,
             zero_count,
         })
     }
-}
 
-impl DDSketch<CubicallyInterpolatedMapping, UnboundedSizeDenseStore> {
-    pub fn unbounded_dense(
-        relative_accuracy: f64,
-    ) -> Result<DDSketch<CubicallyInterpolatedMapping, UnboundedSizeDenseStore>, Error> {
-        let index_mapping =
-            CubicallyInterpolatedMapping::with_relative_accuracy(relative_accuracy)?;
+    pub fn unbounded_dense(relative_accuracy: f64) -> Result<DDSketch, Error> {
+        let index_mapping = IndexMapping::with_relative_accuracy(LogCubic, relative_accuracy)?;
         let negative_value_store = UnboundedSizeDenseStore::new();
         let positive_value_store = UnboundedSizeDenseStore::new();
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
@@ -321,21 +289,19 @@ impl DDSketch<CubicallyInterpolatedMapping, UnboundedSizeDenseStore> {
         let zero_count = 0.0;
         Ok(DDSketch {
             index_mapping,
-            negative_value_store,
-            positive_value_store,
+            negative_value_store: Box::new(negative_value_store),
+            positive_value_store: Box::new(positive_value_store),
             min_indexed_value,
             max_indexed_value,
             zero_count,
         })
     }
-}
 
-impl DDSketch<LogarithmicMapping, CollapsingLowestDenseStore> {
     pub fn logarithmic_collapsing_lowest_dense(
         relative_accuracy: f64,
         max_num_bins: usize,
-    ) -> Result<DDSketch<LogarithmicMapping, CollapsingLowestDenseStore>, Error> {
-        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy)?;
+    ) -> Result<DDSketch, Error> {
+        let index_mapping = IndexMapping::with_relative_accuracy(LOG, relative_accuracy)?;
         let negative_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
         let positive_value_store = CollapsingLowestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
@@ -343,21 +309,19 @@ impl DDSketch<LogarithmicMapping, CollapsingLowestDenseStore> {
         let zero_count = 0.0;
         Ok(DDSketch {
             index_mapping,
-            negative_value_store,
-            positive_value_store,
+            negative_value_store: Box::new(negative_value_store),
+            positive_value_store: Box::new(positive_value_store),
             min_indexed_value,
             max_indexed_value,
             zero_count,
         })
     }
-}
 
-impl DDSketch<LogarithmicMapping, CollapsingHighestDenseStore> {
     pub fn logarithmic_collapsing_highest_dense(
         relative_accuracy: f64,
         max_num_bins: usize,
-    ) -> Result<DDSketch<LogarithmicMapping, CollapsingHighestDenseStore>, Error> {
-        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy)?;
+    ) -> Result<DDSketch, Error> {
+        let index_mapping = IndexMapping::with_relative_accuracy(LOG, relative_accuracy)?;
         let negative_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
         let positive_value_store = CollapsingHighestDenseStore::with_capacity(max_num_bins)?;
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
@@ -365,20 +329,18 @@ impl DDSketch<LogarithmicMapping, CollapsingHighestDenseStore> {
         let zero_count = 0.0;
         Ok(DDSketch {
             index_mapping,
-            negative_value_store,
-            positive_value_store,
+            negative_value_store: Box::new(negative_value_store),
+            positive_value_store: Box::new(positive_value_store),
             min_indexed_value,
             max_indexed_value,
             zero_count,
         })
     }
-}
 
-impl DDSketch<LogarithmicMapping, UnboundedSizeDenseStore> {
     pub fn logarithmic_unbounded_size_dense_store(
         relative_accuracy: f64,
-    ) -> Result<DDSketch<LogarithmicMapping, UnboundedSizeDenseStore>, Error> {
-        let index_mapping = LogarithmicMapping::with_relative_accuracy(relative_accuracy)?;
+    ) -> Result<DDSketch, Error> {
+        let index_mapping = IndexMapping::with_relative_accuracy(LOG, relative_accuracy)?;
         let negative_value_store = UnboundedSizeDenseStore::new();
         let positive_value_store = UnboundedSizeDenseStore::new();
         let min_indexed_value = f64::max(0.0, index_mapping.min_indexable_value());
@@ -386,8 +348,8 @@ impl DDSketch<LogarithmicMapping, UnboundedSizeDenseStore> {
         let zero_count = 0.0;
         Ok(DDSketch {
             index_mapping,
-            negative_value_store,
-            positive_value_store,
+            negative_value_store: Box::new(negative_value_store),
+            positive_value_store: Box::new(positive_value_store),
             min_indexed_value,
             max_indexed_value,
             zero_count,
@@ -406,7 +368,7 @@ impl Flag {
         Flag { marker }
     }
 
-    pub fn decode(input: &mut impl Input) -> Result<Flag, Error> {
+    pub fn decode(input: &mut Input) -> Result<Flag, Error> {
         let marker = input.read_byte()?;
         Ok(Flag::new(marker))
     }
@@ -419,7 +381,7 @@ impl Flag {
         self.marker
     }
 
-    pub fn encode(&self, output: &mut impl Output) -> Result<(), Error> {
+    pub fn encode(&self, output: &mut Output) -> Result<(), Error> {
         output.write_byte(self.marker)
     }
 

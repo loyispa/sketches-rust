@@ -189,7 +189,7 @@ impl CollapsingHighestDenseStore {
         }
     }
 
-    fn get_total_count_with_range(&mut self, from_index: i32, to_index: i32) -> f64 {
+    fn get_total_count_with_range(&self, from_index: i32, to_index: i32) -> f64 {
         if self.is_empty() {
             return 0.0;
         }
@@ -252,7 +252,7 @@ impl Store for CollapsingHighestDenseStore {
         self.max_index < self.min_index
     }
 
-    fn get_total_count(&mut self) -> f64 {
+    fn get_total_count(&self) -> f64 {
         self.get_total_count_with_range(self.min_index, self.max_index)
     }
 
@@ -272,7 +272,7 @@ impl Store for CollapsingHighestDenseStore {
         self.counts[i as usize]
     }
 
-    fn get_descending_stream(&mut self) -> Vec<(i32, f64)> {
+    fn get_descending_stream(&self) -> Vec<(i32, f64)> {
         let mut bins = Vec::new();
         let mut index = self.max_index;
         while index >= self.min_index {
@@ -286,7 +286,7 @@ impl Store for CollapsingHighestDenseStore {
         bins
     }
 
-    fn get_ascending_stream(&mut self) -> Vec<(i32, f64)> {
+    fn get_ascending_stream(&self) -> Vec<(i32, f64)> {
         let mut bins = Vec::new();
         let mut index = self.min_index;
         while index <= self.max_index {
@@ -300,7 +300,7 @@ impl Store for CollapsingHighestDenseStore {
         bins
     }
 
-    fn get_descending_iter(&mut self) -> StoreIter {
+    fn get_descending_iter(&self) -> StoreIter {
         StoreIter::new(
             self.min_index,
             self.max_index,
@@ -310,7 +310,7 @@ impl Store for CollapsingHighestDenseStore {
         )
     }
 
-    fn get_ascending_iter(&mut self) -> StoreIter {
+    fn get_ascending_iter(&self) -> StoreIter {
         StoreIter::new(
             self.min_index,
             self.max_index,
@@ -318,26 +318,5 @@ impl Store for CollapsingHighestDenseStore {
             false,
             self.counts.as_slice(),
         )
-    }
-
-    fn foreach<F>(&mut self, mut acceptor: F)
-    where
-        F: FnMut(i32, f64),
-    {
-        if self.is_empty() {
-            return;
-        }
-
-        for i in self.min_index..self.max_index {
-            let value = self.counts[(i - self.offset) as usize];
-            if value != 0.0 {
-                acceptor(i, value);
-            }
-        }
-
-        let last_count = self.counts[(self.max_index - self.offset) as usize];
-        if last_count != 0.0 {
-            acceptor(self.max_index, last_count);
-        }
     }
 }
