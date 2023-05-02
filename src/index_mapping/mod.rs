@@ -1,31 +1,310 @@
 use crate::sketch::{Flag, FlagType};
-use crate::Error;
-
-mod cubically_interpolated;
-mod logarithmic;
+use crate::{serde, Error};
 
 use crate::output::Output;
-pub use cubically_interpolated::CubicallyInterpolatedMapping;
-pub use logarithmic::LogarithmicMapping;
 
-pub trait IndexMapping: ToString + Sized {
-    fn gamma(&self) -> f64;
-    fn index_offset(&self) -> f64;
-    fn layout(&self) -> IndexMappingLayout;
-    fn index(&self, value: f64) -> i32;
-    fn value(&self, index: i32) -> f64;
-    fn lower_bound(&self, index: i32) -> f64;
-    fn upper_bound(&self, index: i32) -> f64;
-    fn get_relative_accuracy(&self) -> f64;
-    fn min_indexable_value(&self) -> f64;
-    fn max_indexable_value(&self) -> f64;
-    fn with_relative_accuracy(relative_accuracy: f64) -> Result<Self, Error>;
-    fn with_gamma_offset(gamma: f64, index_offset: f64) -> Result<Self, Error>;
-    fn encode(&self, output: &mut impl Output) -> Result<(), Error> {
+#[derive(PartialEq, Debug)]
+pub enum IndexMapping {
+    LogarithmicMapping(f64, f64, f64, f64),
+    CubicallyInterpolatedMapping(f64, f64, f64, f64),
+}
+
+const CUBICALLY_INTERPOLATED_MAPPING_A: f64 = 6.0 / 35.0;
+const CUBICALLY_INTERPOLATED_MAPPING_B: f64 = -3.0 / 5.0;
+const CUBICALLY_INTERPOLATED_MAPPING_C: f64 = 10.0 / 7.0;
+const CUBICALLY_INTERPOLATED_MAPPING_CORRECTING_FACTOR: f64 =
+    1.0 / (CUBICALLY_INTERPOLATED_MAPPING_C * std::f64::consts::LN_2);
+const CUBICALLY_INTERPOLATED_MAPPING_BASE: f64 = 2.0;
+const LOGARITHMIC_MAPPING_CORRECTING_FACTOR: f64 = 1.0;
+const LOGARITHMIC_MAPPING_BASE: f64 = std::f64::consts::E;
+
+impl IndexMapping {
+    pub fn layout(&self) -> IndexMappingLayout {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => IndexMappingLayout::LOG,
+            IndexMapping::CubicallyInterpolatedMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => IndexMappingLayout::LogCubic,
+        }
+    }
+
+    pub fn gamma(&self) -> f64 {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => *gamma,
+            IndexMapping::CubicallyInterpolatedMapping(
+                gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => *gamma,
+        }
+    }
+
+    pub fn index_offset(&self) -> f64 {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                _gamma,
+                index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => *index_offset,
+            IndexMapping::CubicallyInterpolatedMapping(
+                _gamma,
+                index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => *index_offset,
+        }
+    }
+
+    pub fn multiplier(&self) -> f64 {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                _gamma,
+                _index_offset,
+                multiplier,
+                _relative_accuracy,
+            ) => *multiplier,
+            IndexMapping::CubicallyInterpolatedMapping(
+                _gamma,
+                _index_offset,
+                multiplier,
+                _relative_accuracy,
+            ) => *multiplier,
+        }
+    }
+
+    pub fn relative_accuracy(&self) -> f64 {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                relative_accuracy,
+            ) => *relative_accuracy,
+            IndexMapping::CubicallyInterpolatedMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                relative_accuracy,
+            ) => *relative_accuracy,
+        }
+    }
+
+    fn log(&self, value: f64) -> f64 {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => value.ln(),
+            IndexMapping::CubicallyInterpolatedMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => {
+                let long_bits = value.to_bits() as i64;
+                let s: f64 = serde::get_significand_plus_one(long_bits) - 1.0;
+                let e: f64 = serde::get_exponent(long_bits) as f64;
+                ((CUBICALLY_INTERPOLATED_MAPPING_A * s + CUBICALLY_INTERPOLATED_MAPPING_B) * s
+                    + CUBICALLY_INTERPOLATED_MAPPING_C)
+                    * s
+                    + e
+            }
+        }
+    }
+
+    fn log_inverse(&self, index: f64) -> f64 {
+        match self {
+            IndexMapping::LogarithmicMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => index.exp(),
+            IndexMapping::CubicallyInterpolatedMapping(
+                _gamma,
+                _index_offset,
+                _multiplier,
+                _relative_accuracy,
+            ) => {
+                let exponent = index.floor() as i64;
+                // Derived from Cardano's formula
+                let d0: f64 = CUBICALLY_INTERPOLATED_MAPPING_B * CUBICALLY_INTERPOLATED_MAPPING_B
+                    - 3.0 * CUBICALLY_INTERPOLATED_MAPPING_A * CUBICALLY_INTERPOLATED_MAPPING_C;
+                let d1: f64 = 2.0
+                    * CUBICALLY_INTERPOLATED_MAPPING_B
+                    * CUBICALLY_INTERPOLATED_MAPPING_B
+                    * CUBICALLY_INTERPOLATED_MAPPING_B
+                    - 9.0
+                        * CUBICALLY_INTERPOLATED_MAPPING_A
+                        * CUBICALLY_INTERPOLATED_MAPPING_B
+                        * CUBICALLY_INTERPOLATED_MAPPING_C
+                    - 27.0
+                        * CUBICALLY_INTERPOLATED_MAPPING_A
+                        * CUBICALLY_INTERPOLATED_MAPPING_A
+                        * (index - index.floor());
+                let p: f64 = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
+                let significand_plus_one: f64 = -(CUBICALLY_INTERPOLATED_MAPPING_B + p + d0 / p)
+                    / (3.0 * CUBICALLY_INTERPOLATED_MAPPING_A)
+                    + 1.0;
+                serde::build_double(exponent, significand_plus_one)
+            }
+        }
+    }
+
+    pub fn index(&self, value: f64) -> i32 {
+        let index: f64 = self.log(value) * self.multiplier() + self.index_offset();
+        if index >= 0.0 {
+            index as i32
+        } else {
+            (index - 1.0) as i32
+        }
+    }
+
+    pub fn value(&self, index: i32) -> f64 {
+        self.lower_bound(index) * (1.0 + self.relative_accuracy())
+    }
+
+    fn lower_bound(&self, index: i32) -> f64 {
+        self.log_inverse((index as f64 - self.index_offset()) / self.multiplier())
+    }
+
+    #[allow(dead_code)]
+    fn upper_bound(&self, index: i32) -> f64 {
+        self.lower_bound(index + 1)
+    }
+
+    pub(crate) fn min_indexable_value(&self) -> f64 {
+        f64::max(
+            f64::powf(
+                2.0,
+                (i32::MIN as f64 - self.index_offset()) / self.multiplier() + 1.0,
+            ),
+            f64::MIN_POSITIVE * (1.0 + self.relative_accuracy()) / (1.0 - self.relative_accuracy()),
+        )
+    }
+
+    pub(crate) fn max_indexable_value(&self) -> f64 {
+        f64::max(
+            f64::powf(
+                2.0,
+                (i32::MAX as f64 - self.index_offset()) / self.multiplier() - 1.0,
+            ),
+            f64::MAX / (1.0 + self.relative_accuracy()),
+        )
+    }
+
+    pub fn encode(&self, output: &mut Output) -> Result<(), Error> {
         self.layout().to_flag().encode(output)?;
         output.write_double_le(self.gamma())?;
         output.write_double_le(self.index_offset())?;
         Ok(())
+    }
+
+    pub fn with_relative_accuracy(
+        index_layout: IndexMappingLayout,
+        relative_accuracy: f64,
+    ) -> Result<IndexMapping, Error> {
+        if relative_accuracy <= 0.0 || relative_accuracy >= 1.0 {
+            return Err(Error::InvalidArgument(
+                "The relative accuracy must be between 0 and 1.",
+            ));
+        }
+
+        match index_layout {
+            IndexMappingLayout::LOG => {
+                if relative_accuracy <= 0.0 || relative_accuracy >= 1.0 {
+                    return Err(Error::InvalidArgument(
+                        "The relative accuracy must be between 0 and 1.",
+                    ));
+                }
+
+                let gamma =
+                    calculate_gamma(relative_accuracy, LOGARITHMIC_MAPPING_CORRECTING_FACTOR);
+                let index_offset: f64 = 0.0;
+                let multiplier = LOGARITHMIC_MAPPING_BASE.ln() / (gamma - 1.0).ln_1p();
+                let relative_accuracy = calculate_relative_accuracy(gamma, 1.0);
+                Ok(IndexMapping::LogarithmicMapping(
+                    gamma,
+                    index_offset,
+                    multiplier,
+                    relative_accuracy,
+                ))
+            }
+
+            IndexMappingLayout::LogCubic => {
+                let gamma = calculate_gamma(
+                    relative_accuracy,
+                    CUBICALLY_INTERPOLATED_MAPPING_CORRECTING_FACTOR,
+                );
+                let index_offset: f64 = 0.0;
+
+                let multiplier = CUBICALLY_INTERPOLATED_MAPPING_BASE.ln() / (gamma - 1.0).ln_1p();
+                let relative_accuracy = calculate_relative_accuracy(
+                    gamma,
+                    CUBICALLY_INTERPOLATED_MAPPING_CORRECTING_FACTOR,
+                );
+                Ok(IndexMapping::CubicallyInterpolatedMapping(
+                    gamma,
+                    index_offset,
+                    multiplier,
+                    relative_accuracy,
+                ))
+            }
+            _ => Err(Error::InvalidArgument("Unsupported IndexLayout")),
+        }
+    }
+
+    pub fn with_gamma_offset(
+        index_layout: IndexMappingLayout,
+        gamma: f64,
+        index_offset: f64,
+    ) -> Result<IndexMapping, Error> {
+        match index_layout {
+            IndexMappingLayout::LOG => {
+                let multiplier = LOGARITHMIC_MAPPING_BASE.ln() / gamma.ln();
+                let relative_accuracy =
+                    calculate_relative_accuracy(gamma, LOGARITHMIC_MAPPING_CORRECTING_FACTOR);
+                Ok(IndexMapping::LogarithmicMapping(
+                    gamma,
+                    index_offset,
+                    multiplier,
+                    relative_accuracy,
+                ))
+            }
+
+            IndexMappingLayout::LogCubic => {
+                let multiplier = CUBICALLY_INTERPOLATED_MAPPING_BASE.ln() / gamma.ln();
+                let relative_accuracy = calculate_relative_accuracy(
+                    gamma,
+                    CUBICALLY_INTERPOLATED_MAPPING_CORRECTING_FACTOR,
+                );
+                Ok(IndexMapping::CubicallyInterpolatedMapping(
+                    gamma,
+                    index_offset,
+                    multiplier,
+                    relative_accuracy,
+                ))
+            }
+
+            _ => Err(Error::InvalidArgument("Unsupported IndexLayout")),
+        }
     }
 }
 
@@ -68,7 +347,8 @@ fn calculate_gamma(relative_accuracy: f64, correcting_factor: f64) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::index_mapping::{CubicallyInterpolatedMapping, IndexMapping, LogarithmicMapping};
+    use crate::index_mapping::IndexMapping;
+    use crate::index_mapping::IndexMappingLayout::{LogCubic, LOG};
 
     const TEST_GAMMAS: [f64; 3] = [1.0 + 1e-6, 1.02, 1.5];
     const TEST_INDEX_OFFSETS: [f64; 4] = [0.0, 1.0, -12.23, 7768.3];
@@ -94,8 +374,8 @@ mod tests {
         for gamma in TEST_GAMMAS {
             for index_offset in TEST_INDEX_OFFSETS {
                 let index_mapping =
-                    CubicallyInterpolatedMapping::with_gamma_offset(gamma, index_offset).unwrap();
-                assert_eq!(accuracy[index], index_mapping.get_relative_accuracy());
+                    IndexMapping::with_gamma_offset(LogCubic, gamma, index_offset).unwrap();
+                assert_eq!(accuracy[index], index_mapping.relative_accuracy());
                 index += 1;
             }
         }
@@ -106,7 +386,7 @@ mod tests {
         for gamma in TEST_GAMMAS {
             for index_offset in TEST_INDEX_OFFSETS {
                 let index_mapping =
-                    CubicallyInterpolatedMapping::with_gamma_offset(gamma, index_offset).unwrap();
+                    IndexMapping::with_gamma_offset(LogCubic, gamma, index_offset).unwrap();
                 let index_of1 = index_mapping.index(1.0) as f64;
                 // If 1 is on a bucket boundary, its associated index can be either of the ones of the previous
                 // and the next buckets.
@@ -121,7 +401,7 @@ mod tests {
         for gamma in TEST_GAMMAS {
             for index_offset in TEST_INDEX_OFFSETS {
                 let index_mapping =
-                    LogarithmicMapping::with_gamma_offset(gamma, index_offset).unwrap();
+                    IndexMapping::with_gamma_offset(LOG, gamma, index_offset).unwrap();
                 let index_of1 = index_mapping.index(1.0) as f64;
                 // If 1 is on a bucket boundary, its associated index can be either of the ones of the previous
                 // and the next buckets.
@@ -148,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_cubically_interpolated_mapping_validity() {
-        let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(1e-2).unwrap();
+        let mapping = IndexMapping::with_relative_accuracy(LogCubic, 1e-2).unwrap();
 
         println!("CubicallyInterpolatedMapping: {:?}", mapping);
 
@@ -184,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_logarithmic_mapping_validity() {
-        let mapping = LogarithmicMapping::with_relative_accuracy(1e-2).unwrap();
+        let mapping = IndexMapping::with_relative_accuracy(LOG, 1e-2).unwrap();
 
         println!("LogarithmicMapping: {:?}", mapping);
 
@@ -221,7 +501,7 @@ mod tests {
 
     #[test]
     fn test_logarithmic_mapping_index() {
-        let mapping = LogarithmicMapping::with_relative_accuracy(2e-2).unwrap();
+        let mapping = IndexMapping::with_relative_accuracy(LOG, 2e-2).unwrap();
         let values: Vec<f64> = vec![
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
             17.0, 18.0, 19.0, 228.0, 484.0, 499.0, 559.0, 584.0, 629.0, 722.0, 730.0, 777.0, 805.0,
@@ -250,7 +530,7 @@ mod tests {
 
     #[test]
     fn test_cubically_interpolated_index() {
-        let mapping = CubicallyInterpolatedMapping::with_relative_accuracy(2e-2).unwrap();
+        let mapping = IndexMapping::with_relative_accuracy(LogCubic, 2e-2).unwrap();
         let values: Vec<f64> = vec![
             1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
             17.0, 18.0, 19.0, 125.0, 189.0, 379.0, 444.0, 613.0, 639.0, 671.0, 834.0, 983.0,

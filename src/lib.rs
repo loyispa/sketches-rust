@@ -55,27 +55,18 @@ Decode from bytes:
         3, 0, 0, 0, 3, 0, 2, 0, 0, 3, 3, 2, 2, 3, 3, 2, 0, 0, 0, 0, 2, 0, 2, 2, 2, 4, 4, 132, 64,
         0, 4, 2, 0, 2, 2, 3, 132, 64, 4, 132, 64, 4, 2, 2, 0, 6, 4, 6, 132, 64, 2, 6,
     ];
-    d.decode_and_merge_with(input).unwrap();
+    d.decode_and_merge_with(&input).unwrap();
     assert_eq!(d.get_count(), 100.0);
 ```
  */
 
 mod error;
-pub mod index_mapping;
+mod index_mapping;
 mod input;
 mod output;
 mod serde;
 mod sketch;
-pub mod store;
+mod store;
 
 pub use self::error::Error;
-pub use self::index_mapping::CubicallyInterpolatedMapping;
-pub use self::index_mapping::IndexMapping;
-pub use self::index_mapping::LogarithmicMapping;
-use self::input::DefaultInput;
-use self::output::DefaultOutput;
 pub use self::sketch::DDSketch;
-pub use self::store::CollapsingHighestDenseStore;
-pub use self::store::CollapsingLowestDenseStore;
-pub use self::store::Store;
-pub use self::store::UnboundedSizeDenseStore;

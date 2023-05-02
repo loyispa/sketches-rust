@@ -6,6 +6,7 @@ mod collapsing_highest;
 mod collapsing_lowest;
 mod unbounded;
 
+use crate::index_mapping::IndexMapping;
 use crate::output::Output;
 use crate::sketch::{Flag, FlagType};
 pub use collapsing_highest::CollapsingHighestDenseStore;
@@ -15,19 +16,19 @@ pub use unbounded::UnboundedSizeDenseStore;
 pub trait Store {
     fn add(&mut self, index: i32, count: f64);
     fn add_bin(&mut self, bin: (i32, f64));
-    fn merge_with(&mut self, store: &mut impl Store) {
-        for bin in store.get_descending_stream() {
+    fn merge_with(&mut self, bins: Vec<(i32, f64)>) {
+        for bin in bins {
             self.add_bin(bin)
         }
     }
     fn clear(&mut self);
     fn is_empty(&self) -> bool;
-    fn get_total_count(&mut self) -> f64;
+    fn get_total_count(&self) -> f64;
     fn get_offset(&self) -> i32;
     fn get_min_index(&self) -> i32;
     fn get_max_index(&self) -> i32;
     fn get_count(&self, i: i32) -> f64;
-    fn encode(&self, output: &mut impl Output, store_flag_type: FlagType) -> Result<(), Error> {
+    fn encode(&self, output: &mut Output, store_flag_type: FlagType) -> Result<(), Error> {
         if self.is_empty() {
             return Ok(());
         }
@@ -90,7 +91,7 @@ pub trait Store {
     }
     fn decode_and_merge_with(
         &mut self,
-        input: &mut impl Input,
+        input: &mut Input,
         mode: BinEncodingMode,
     ) -> Result<(), Error> {
         match mode {
@@ -138,13 +139,30 @@ pub trait Store {
             }
         }
     }
-    fn get_descending_stream(&mut self) -> Vec<(i32, f64)>;
-    fn get_ascending_stream(&mut self) -> Vec<(i32, f64)>;
-    fn get_descending_iter(&mut self) -> StoreIter;
-    fn get_ascending_iter(&mut self) -> StoreIter;
-    fn foreach<F>(&mut self, acceptor: F)
-    where
-        F: FnMut(i32, f64);
+    fn get_descending_stream(&self) -> Vec<(i32, f64)>;
+    fn get_ascending_stream(&self) -> Vec<(i32, f64)>;
+    fn get_descending_iter(&self) -> StoreIter;
+    fn get_ascending_iter(&self) -> StoreIter;
+    fn sum(&self, index_mapping: &IndexMapping) -> f64 {
+        let mut sum = 0.0;
+        if self.is_empty() {
+            return sum;
+        }
+
+        for i in self.get_min_index()..self.get_max_index() {
+            let value = self.get_count(i - self.get_offset());
+            if value != 0.0 {
+                sum += index_mapping.value(i) * value;
+            }
+        }
+
+        let last_count = self.get_count(self.get_max_index() - self.get_offset());
+        if last_count != 0.0 {
+            sum += index_mapping.value(self.get_max_index()) * last_count;
+        }
+
+        sum
+    }
 }
 
 pub struct StoreIter<'a> {

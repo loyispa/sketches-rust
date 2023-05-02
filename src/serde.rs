@@ -21,11 +21,11 @@ const VAR_DOUBLE_LENGTHS: [i64; 65] = [
     1,
 ];
 
-pub fn decode_signed_var_long(input: &mut impl Input) -> Result<i64, Error> {
+pub fn decode_signed_var_long(input: &mut Input) -> Result<i64, Error> {
     Ok(zig_zag_decode(decode_unsigned_var_long(input)?))
 }
 
-pub fn decode_unsigned_var_long(input: &mut impl Input) -> Result<i64, Error> {
+pub fn decode_unsigned_var_long(input: &mut Input) -> Result<i64, Error> {
     let mut value: i64 = 0;
     let mut shift = 0;
     loop {
@@ -38,7 +38,7 @@ pub fn decode_unsigned_var_long(input: &mut impl Input) -> Result<i64, Error> {
     }
 }
 
-pub fn decode_var_double(input: &mut impl Input) -> Result<f64, Error> {
+pub fn decode_var_double(input: &mut Input) -> Result<f64, Error> {
     let mut bits: i64 = 0;
     let mut shift = 8 * 8 - 7;
     loop {
@@ -96,10 +96,7 @@ fn var_bits_to_double(bits: i64) -> f64 {
     f64::from_bits((i64::rotate_right(bits, 6) + f64::to_bits(1.0) as i64) as u64) - 1.0
 }
 
-pub fn ignore_exact_summary_statistic_flags(
-    input: &mut impl Input,
-    flag: Flag,
-) -> Result<(), Error> {
+pub fn ignore_exact_summary_statistic_flags(input: &mut Input, flag: Flag) -> Result<(), Error> {
     if flag == Flag::COUNT {
         decode_var_double(input)?;
         Ok(())
@@ -111,7 +108,7 @@ pub fn ignore_exact_summary_statistic_flags(
     }
 }
 
-pub fn encode_var_double(output: &mut impl Output, value: f64) -> Result<(), Error> {
+pub fn encode_var_double(output: &mut Output, value: f64) -> Result<(), Error> {
     let mut bits = double_to_var_bits(value);
     for _ in 0..8 {
         let next = (bits >> (8 * 8 - 7)) as u8;
@@ -149,7 +146,7 @@ fn zig_zag_encode(value: i64) -> i64 {
     value >> (64 - 1) ^ (value << 1)
 }
 
-pub fn encode_unsigned_var_long(output: &mut impl Output, mut value: i64) -> Result<(), Error> {
+pub fn encode_unsigned_var_long(output: &mut Output, mut value: i64) -> Result<(), Error> {
     let length = (63_i64 - value.leading_zeros() as i64) / 7;
     let mut i = 0;
     while i < length && i < 8 {
@@ -161,15 +158,15 @@ pub fn encode_unsigned_var_long(output: &mut impl Output, mut value: i64) -> Res
     Ok(())
 }
 
-pub fn encode_signed_var_long(output: &mut impl Output, value: i64) -> Result<(), Error> {
+pub fn encode_signed_var_long(output: &mut Output, value: i64) -> Result<(), Error> {
     encode_unsigned_var_long(output, zig_zag_encode(value))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::input::DefaultInput;
-    use crate::DefaultOutput;
+    use crate::input::Input;
+    use crate::output::Output;
 
     #[test]
     fn test_decode_var_double() {
@@ -202,7 +199,7 @@ mod tests {
         ];
 
         for arg in args {
-            let mut input = DefaultInput::wrap(arg.1);
+            let mut input = Input::wrap(&arg.1);
             let value: f64 = decode_var_double(&mut input).unwrap();
             assert_eq!(value, arg.0);
         }
@@ -273,7 +270,7 @@ mod tests {
         ];
 
         for arg in args {
-            let mut input = DefaultInput::wrap(arg.1);
+            let mut input = Input::wrap(&arg.1);
             let value: i64 = decode_signed_var_long(&mut input).unwrap();
             assert_eq!(arg.0, value);
         }
@@ -297,7 +294,7 @@ mod tests {
         ];
 
         for arg in args {
-            let mut input = DefaultInput::wrap(arg.1);
+            let mut input = Input::wrap(&arg.1);
             let value: i64 = decode_unsigned_var_long(&mut input).unwrap();
             assert_eq!(arg.0, value);
         }
@@ -456,9 +453,9 @@ mod tests {
     fn test_encode_var_double() {
         let values = var_doubles();
         for value in values {
-            let mut output = DefaultOutput::with_capacity(32);
+            let mut output = Output::with_capacity(32);
             encode_var_double(&mut output, value.0).unwrap();
-            assert_eq!(value.1, output.trimmed_copy());
+            assert_eq!(value.1, output.trim());
         }
     }
 
@@ -493,9 +490,9 @@ mod tests {
     fn test_encode_signed_var_long() {
         let values = signed_var_longs();
         for value in values {
-            let mut output = DefaultOutput::with_capacity(32);
+            let mut output = Output::with_capacity(32);
             encode_signed_var_long(&mut output, value.0).unwrap();
-            assert_eq!(value.1, output.trimmed_copy());
+            assert_eq!(value.1, output.trim());
         }
     }
 
