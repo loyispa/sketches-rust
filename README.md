@@ -11,6 +11,7 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] Merge with other instance
 - [x] Deserialize from bytes
 - [x] Serialize to bytes
+- [x] Zero dependencies
 
 # Usage
 ```rust
