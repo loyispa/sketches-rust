@@ -236,8 +236,64 @@ impl DDSketch {
 
         Ok(output.trim())
     }
+
+    pub fn decode(bytes: &Vec<u8>) -> Result<DDSketch, Error> {
+        let mut input = Input::wrap(bytes);
+        let mut positive_value_store = UnboundedSizeDenseStore::new();
+        let mut negative_value_store = UnboundedSizeDenseStore::new();
+        let mut index_mapping = None;
+        let mut zero_count = 0.0;
+        while input.has_remaining() {
+            let flag = Flag::decode(&mut input)?;
+            let flag_type = flag.get_type()?;
+            match flag_type {
+                FlagType::PositiveStore => {
+                    let mode = BinEncodingMode::of_flag(flag.get_marker())?;
+                    positive_value_store.decode_and_merge_with(&mut input, mode)?;
+                }
+                FlagType::NegativeStore => {
+                    let mode = BinEncodingMode::of_flag(flag.get_marker())?;
+                    negative_value_store.decode_and_merge_with(&mut input, mode)?;
+                }
+                FlagType::IndexMapping => {
+                    let layout = IndexMappingLayout::of_flag(&flag)?;
+                    let gamma = input.read_double_le()?;
+                    let index_offset = input.read_double_le()?;
+                    index_mapping = Some(IndexMapping::with_gamma_offset(
+                        layout,
+                        gamma,
+                        index_offset,
+                    )?);
+                }
+                FlagType::SketchFeatures => {
+                    if Flag::ZERO_COUNT == flag {
+                        zero_count += serde::decode_var_double(&mut input)?;
+                    } else {
+                        serde::ignore_exact_summary_statistic_flags(&mut input, flag)?;
+                    }
+                }
+            }
+        }
+
+        match index_mapping {
+            Some(mapping) => {
+                let min_indexed_value = f64::max(0.0, mapping.min_indexable_value());
+                let max_indexed_value = mapping.max_indexable_value();
+                Ok(DDSketch {
+                    index_mapping: mapping,
+                    negative_value_store: Box::new(negative_value_store),
+                    positive_value_store: Box::new(positive_value_store),
+                    min_indexed_value,
+                    max_indexed_value,
+                    zero_count,
+                })
+            }
+            None => Err(Error::InvalidArgument("No IndexMapping decoded")),
+        }
+    }
 }
 
+// factory methods
 impl DDSketch {
     pub fn collapsing_lowest_dense(
         relative_accuracy: f64,
