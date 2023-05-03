@@ -14,6 +14,19 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] Zero dependencies
 
 # Usage
+
+Run the following Cargo command in your project directory:
+```
+cargo add sketches-rust
+```
+
+
+Or add the following line to your Cargo.toml:
+```
+sketches-rust = "0.2.1"
+```
+
+# Demos
 ```rust
     // query quantile
     let mut d = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
