@@ -1,5 +1,5 @@
 # sketches-rust
-This is a partial port of the [Java DDSketch](https://github.com/DataDog/sketches-java) quantile implementation writen by Rust. DDSketch is mergeable, meaning that multiple sketches from distributed systems can be combined in a central node.
+This is a direct port of the java [DDSketch](https://github.com/DataDog/sketches-java) quantile implementation writen by Rust. DDSketch is mergeable, meaning that multiple sketches from distributed systems can be combined in a central node.
 
 # Features
 It aims at as compatible as possible with Java implementations, here is some features has support: 
