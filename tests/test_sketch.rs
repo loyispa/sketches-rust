@@ -193,6 +193,17 @@ fn test_sketch_decode_3() {
 }
 
 #[test]
+fn test_sketch_decode_4() {
+    let input = vec![
+        2, 42, 120, 57, 5, 47, 167, 240, 63, 0, 0, 0, 0, 0, 0, 0, 0, 13, 50, 130, 1, 2, 136, 32, 0,
+        3, 0, 0, 0, 3, 0, 2, 0, 0, 3, 3, 2, 2, 3, 3, 2, 0, 0, 0, 0, 2, 0, 2, 2, 2, 4, 4, 132, 64,
+        0, 4, 2, 0, 2, 2, 3, 132, 64, 4, 132, 64, 4, 2, 2, 0, 6, 4, 6, 132, 64, 2, 6,
+    ];
+    let mut sketch = DDSketch::decode(&input).unwrap();
+    assert_eq!(sketch.get_count(), 100.0);
+}
+
+#[test]
 #[should_panic]
 fn test_sketch_decode_panic_1() {
     let input = vec![
