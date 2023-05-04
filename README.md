@@ -27,8 +27,9 @@ sketches-rust = "0.2.1"
 ```
 
 # Demos
+Query quantile:
 ```rust
-    // query quantile
+    use sketches_rust::DDSketch;
     let mut d = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
     d.accept(1.0);
     d.accept(2.0);
@@ -37,9 +38,11 @@ sketches-rust = "0.2.1"
     assert_eq!(c, 3.0);
     let q = d.get_value_at_quantile(0.5).unwrap();
     assert!(q < 2.01 && q > 1.99);
+```
 
-
-    // merge with other instance
+Merge with other instance:
+```rust
+    use sketches_rust::DDSketch;
     let mut d1 = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
     d1.accept(1.0);
     d1.accept(2.0);
@@ -52,8 +55,11 @@ sketches-rust = "0.2.1"
     assert_eq!(3.0,  d2.get_count());
     d2.merge_with(&mut d1).unwrap();
     assert_eq!(6.0,  d2.get_count());
+```
 
-    // serialize to bytes:
+Serialize to bytes:
+```rust
+    use sketches_rust::DDSketch;
     let mut d = DDSketch::unbounded_dense(2e-2).unwrap();
     d.accept(1.0);
     d.accept(2.0);
@@ -62,7 +68,11 @@ sketches-rust = "0.2.1"
     d.accept(5.0);
     println!("encode: {:?}", d.encode().unwrap());
 
-    // deserialize from bytes
+```
+
+Deserialize from bytes:
+```rust
+    use sketches_rust::DDSketch;
     let mut input = vec![
         2, 42, 120, 57, 5, 47, 167, 240, 63, 0, 0, 0, 0, 0, 0, 0, 0, 13, 50, 130, 1, 2, 136, 32, 0,
         3, 0, 0, 0, 3, 0, 2, 0, 0, 3, 3, 2, 2, 3, 3, 2, 0, 0, 0, 0, 2, 0, 2, 2, 2, 4, 4, 132, 64,

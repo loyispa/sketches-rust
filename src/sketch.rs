@@ -80,8 +80,8 @@ impl DDSketch {
         }
 
         let mut sum = 0.0;
-        sum -= self.negative_value_store.sum(&self.index_mapping);
-        sum += self.positive_value_store.sum(&self.index_mapping);
+        sum -= self.negative_value_store.get_sum(&self.index_mapping);
+        sum += self.positive_value_store.get_sum(&self.index_mapping);
 
         Some(sum)
     }
