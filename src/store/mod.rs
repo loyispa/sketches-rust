@@ -143,7 +143,7 @@ pub trait Store {
     fn get_ascending_stream(&self) -> Vec<(i32, f64)>;
     fn get_descending_iter(&self) -> StoreIter;
     fn get_ascending_iter(&self) -> StoreIter;
-    fn sum(&self, index_mapping: &IndexMapping) -> f64 {
+    fn get_sum(&self, index_mapping: &IndexMapping) -> f64 {
         let mut sum = 0.0;
         if self.is_empty() {
             return sum;
