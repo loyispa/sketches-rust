@@ -1,6 +1,6 @@
 [package]
 name = "sketches-rust"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["loyispa <litiegen456250@gmail.com>"]
 license = "Apache-2.0"
 edition = "2021"
@@ -11,3 +11,4 @@ description = "Rust implementation of DDSketch."
 exclude = [".gitignore"]
 
 [dependencies]
+rust-strictmath = "0.1.1"
