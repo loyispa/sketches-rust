@@ -1,5 +1,6 @@
 use crate::sketch::{Flag, FlagType};
 use crate::{serde, Error};
+use rust_strictmath::cbrt;
 
 use crate::output::Output;
 
@@ -159,7 +160,7 @@ impl IndexMapping {
                         * CUBICALLY_INTERPOLATED_MAPPING_A
                         * CUBICALLY_INTERPOLATED_MAPPING_A
                         * (index - index.floor());
-                let p: f64 = ((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0).cbrt();
+                let p: f64 = cbrt((d1 - (d1 * d1 - 4.0 * d0 * d0 * d0).sqrt()) / 2.0);
                 let significand_plus_one: f64 = -(CUBICALLY_INTERPOLATED_MAPPING_B + p + d0 / p)
                     / (3.0 * CUBICALLY_INTERPOLATED_MAPPING_A)
                     + 1.0;
