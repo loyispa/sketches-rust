@@ -11,7 +11,6 @@ It aims at as compatible as possible with Java implementations, here is some fea
 - [x] Merge with other instance
 - [x] Deserialize from bytes
 - [x] Serialize to bytes
-- [x] Zero dependencies
 
 # Usage
 
@@ -23,7 +22,7 @@ cargo add sketches-rust
 
 Or add the following line to your Cargo.toml:
 ```
-sketches-rust = "0.2.1"
+sketches-rust = "0.2.2"
 ```
 
 # Demos
