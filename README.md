@@ -1,16 +1,14 @@
 # sketches-rust
-This is a direct port of the java [DDSketch](https://github.com/DataDog/sketches-java) quantile implementation writen by Rust. DDSketch is mergeable, meaning that multiple sketches from distributed systems can be combined in a central node.
+The port of the [DDSketch](https://github.com/DataDog/sketches-java) rust implementation. 
 
 # Features
-It aims at as compatible as possible with Java implementations, here is some features has support: 
-- [x] CubicallyInterpolatedMapping 
-- [x] LogarithmicMapping
-- [x] CollapsingHighestDenseStore: collapse the highest bucket when reach specified size
-- [x] CollapsingLowestDenseStore: collapse the lowest bucket when reach specified size
-- [x] UnboundedSizeDenseStore: unlimited bucket
-- [x] Merge with other instance
-- [x] Deserialize from bytes
-- [x] Serialize to bytes
+- CubicallyInterpolatedMapping 
+- LogarithmicMapping
+- CollapsingHighestDenseStore: collapse the highest bucket when reach specified size
+- CollapsingLowestDenseStore: collapse the lowest bucket when reach specified size
+- UnboundedSizeDenseStore: unlimited bucket
+- Merge with other instance
+- Serialize & Deserialize
 
 # Usage
 
@@ -25,8 +23,8 @@ Or add the following line to your Cargo.toml:
 sketches-rust = "0.2.2"
 ```
 
-# Demos
-Query quantile:
+
+Query:
 ```rust
     use sketches_rust::DDSketch;
     let mut d = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
@@ -39,7 +37,7 @@ Query quantile:
     assert!(q < 2.01 && q > 1.99);
 ```
 
-Merge with other instance:
+Merge:
 ```rust
     use sketches_rust::DDSketch;
     let mut d1 = DDSketch::collapsing_lowest_dense(0.02,100).unwrap();
@@ -56,7 +54,7 @@ Merge with other instance:
     assert_eq!(6.0,  d2.get_count());
 ```
 
-Serialize to bytes:
+Serialize:
 ```rust
     use sketches_rust::DDSketch;
     let mut d = DDSketch::unbounded_dense(2e-2).unwrap();
@@ -69,7 +67,7 @@ Serialize to bytes:
 
 ```
 
-Deserialize from bytes:
+Deserialize:
 ```rust
     use sketches_rust::DDSketch;
     let mut input = vec![
