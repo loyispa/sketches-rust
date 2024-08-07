@@ -11,4 +11,3 @@ description = "Rust implementation of DDSketch."
 exclude = [".gitignore"]
 
 [dependencies]
-rust-strictmath = "0.1.1"
