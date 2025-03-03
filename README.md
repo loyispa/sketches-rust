@@ -20,7 +20,7 @@ cargo add sketches-rust
 
 Or add the following line to your Cargo.toml:
 ```
-sketches-rust = "0.2.2"
+sketches-rust = "0.2.3"
 ```
 
 
